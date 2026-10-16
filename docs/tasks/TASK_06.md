@@ -1,6 +1,6 @@
 # TASK_06: Severity normalization and exit-code aggregation
 
-- **Status:** Not started
+- **Status:** Done (with follow-ups)
 - **Phase:** 1 (Core shell engine)
 - **Spec sections:** 7.4, 8.2 (`--fail-on-critical`), 8.3
 - **Depends on:** TASK_05
@@ -11,11 +11,11 @@ Make every finding carry one of four severities. Compute the final exit code fro
 
 ## Acceptance criteria
 
-- [ ] The default severity for each category in the Section 7.4 table is applied.
-- [ ] `critical_findings` counts only `CRITICAL` findings.
-- [ ] With `--fail-on-critical` and at least one `CRITICAL` finding, the exit code is `1`.
-- [ ] Without `--fail-on-critical`, findings of any severity exit `0`.
-- [ ] Engine-native severities are mapped through one function, so each engine's mapping can change without touching the aggregator.
+- [x] The default severity for each category in the Section 7.4 table is applied.
+- [x] `critical_findings` counts only `CRITICAL` findings.
+- [x] With `--fail-on-critical` and at least one `CRITICAL` finding, the exit code is `1`.
+- [x] Without `--fail-on-critical`, findings of any severity exit `0`.
+- [x] Engine-native severities are mapped through one function, so each engine's mapping can change without touching the aggregator.
 
 ## Blockers
 

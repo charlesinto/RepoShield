@@ -17,7 +17,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Done (with follow-ups) | 55, 60 |
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Done | 19 (resolved) |
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Done (with follow-ups) | 29 (partly), 31, 32, 33, 34, 36, 54, 58 |
-| [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Not started | 27, 59, 62, 64 |
+| [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Done (with follow-ups) | 27, 59, 62, 64 |
 | [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Not started | 56, 57, 63 |
 | [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Not started | 49, 53, 61, 64 |
 | [TASK_09](tasks/TASK_09.md) | Supply chain anomaly detection | 2 | Blocked | 22, 23, 62 |
@@ -123,11 +123,23 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_06: Severity and exit-code aggregation
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Item 27 (YARA and Semgrep mapping), item 64 (OSV severity mapping), item 62 (category names).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Four categories have no decided default severity. They are temporarily `HIGH`. Record each temporary value here.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New module `lib/severity.sh`, sourced by `bin/repo-shield`. `severity_default <category> [condition]` applies the spec 7.4 table: `MALICIOUS_BUILD_HOOK` takes `pipe-to-shell` (CRITICAL) or `network` (HIGH). `REVERSE_SHELL` is CRITICAL, `OBFUSCATED_EXECUTION` HIGH, `MISSING_LOCKFILE` LOW. `severity_from_engine <engine> <native>` is the one mapping point for engine severities, with one branch per engine (yara and semgrep so far). `severity_count <level>` counts exactly one level. `severity_scan_exit_code` sets `_EXIT_CODE` to `1` only with `--fail-on-critical` and at least one `CRITICAL` finding. Tests: `tests/severity_test.sh`, 11 checks under `/bin/bash` 3.2.57. Mutation checks: pipe-to-shell set to HIGH, flag ignored, nocasematch not restored, empty engine not MEDIUM, and count not exact all fail a check. The other suites still pass (cli 41, traverse 10, classify 70, report 27). The entry point still exits `1` at the scan stub, so the exit code is not yet wired to a real scan.
+- **Decisions made:**
+  - Provisional `HIGH` for `SECRET_EXPOSED`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, and `PATH_TRAVERSAL_HOOK`. Spec 7.4 now says so. Item 21 says these are Open.
+  - Item 27 working default (from the task file): a rule with no native severity is `MEDIUM`. Other native values with no mapping return an error. The spec 7.4 note says this is not yet decided.
+  - Category names (item 62) are used as they appear in spec 7.4. Still Open.
+  - `severity_default` returns 1 for `VULNERABLE_DEPENDENCY`. The OSV mapping is not invented (item 64). TASK_08 cannot set this severity until item 64 is decided.
+  - `severity_from_engine` returns 1 for `osv`, for the same reason.
+  - `report.sh` still counts `CRITICAL` inline. It was not changed to call `severity_count`, so the report tests do not need `severity.sh` loaded.
+- **Blockers identified:** Item 64 (OSV mapping; blocks TASK_08's `VULNERABLE_DEPENDENCY` severity). Item 27 (YARA and Semgrep mapping; the working default is used, the other native values are not mapped). Item 62 (category names; used as written). Item 59 (exit code `1` shared with errors; not handled here).
+- **Lessons learnt:** `cli_parse_args` does not reset `CLI_FAIL_ON_CRITICAL` between calls, so a test that checks "flag off" after a "flag on" parse must run in a fresh shell. A usage error inside `cli_parse_args` calls `exit`, which ends the whole test shell, so it must not appear in a snippet that has later checks. The first version of the test made both mistakes and was caught by reading it back, not by a failure.
+- **Things to consider:**
+  - Decide item 64 before TASK_08. It is the only way `VULNERABLE_DEPENDENCY` gets a severity.
+  - Decide item 27 for the real YARA and Semgrep rule formats before TASK_11. Semgrep uses names like `ERROR` and `WARNING` in its output, which are not mapped yet.
+  - Decide items 21 and 62 for the four provisional categories. They must be `HIGH` only until then.
+  - When TASK_08 onward calls `severity_default`, check the category and condition names against the spec 7.4 table.
+  - Item 59 is still Open. The exit code uses `1` for both findings and errors.
 
 ### TASK_07: SCA manifest parsers
 
