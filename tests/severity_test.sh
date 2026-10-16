@@ -134,5 +134,37 @@ check "--fail-on-critical with no findings exits 0" \
   "$(cat "$WORK/out")" \
   "empty=0"
 
+# CVSS score bands (spec 7.4, item 64): 9.0-10.0 CRITICAL, 7.0-8.9 HIGH, 4.0-6.9 MEDIUM,
+# 0.1-3.9 LOW. The edges are checked on both sides. 0.0 and out-of-range values have no band.
+run 'for s in 10.0 9.0 9.8 8.9 7.0 6.9 4.0 3.9 0.1 0.0 10.1 11 abc; do
+  if severity_from_cvss_score "$s"; then echo "$s=$_SEVERITY"; else echo "$s=rejected"; fi
+done'
+check "CVSS score bands map to the four levels" "$(cat "$WORK/out")" "10.0=CRITICAL
+9.0=CRITICAL
+9.8=CRITICAL
+8.9=HIGH
+7.0=HIGH
+6.9=MEDIUM
+4.0=MEDIUM
+3.9=LOW
+0.1=LOW
+0.0=rejected
+10.1=rejected
+11=rejected
+abc=rejected"
+
+# The CVSS v3 base score is computed from the vector. These match the NVD base scores for the
+# same vectors. A CVSS v4 vector is not scored here, so it is rejected.
+run 'for v in CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H CVSS:4.0/AV:N/AC:L/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N; do
+  cvss3_base_score "$v" || echo rejected
+done'
+check "CVSS v3 vectors score to their NVD base scores" "$(cat "$WORK/out")" "9.8
+10.0
+4.3
+7.5
+5.3
+9.8
+rejected"
+
 echo "passed: $PASS, failed: $FAIL"
 [ "$FAIL" -eq 0 ]
