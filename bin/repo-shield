@@ -1,0 +1,24 @@
+#!/bin/bash
+# repo-shield entry point. Keep REPO_SHIELD_VERSION in sync with each release (spec Section 10).
+REPO_SHIELD_VERSION="0.1.0"
+
+# Follow symlinks so lib/ is found when this script is linked into a bin directory.
+_rs_src=$0
+while [ -L "$_rs_src" ]; do
+  _rs_dir=$(cd -P "$(dirname "$_rs_src")" && pwd)
+  _rs_src=$(readlink "$_rs_src")
+  case $_rs_src in
+    /*) ;;
+    *) _rs_src=$_rs_dir/$_rs_src ;;
+  esac
+done
+_rs_root=$(cd -P "$(dirname "$_rs_src")/.." && pwd)
+
+. "$_rs_root/lib/cli.sh"
+
+cli_parse_args "$@"
+cli_check_dependencies
+
+# Scanning is added by later tasks. Until then, fail rather than report a clean result.
+echo "repo-shield: scanning is not implemented yet" >&2
+exit 1
