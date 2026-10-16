@@ -75,6 +75,8 @@ RepoShield reads untrusted repositories, so the following are hard requirements:
 
 - Accept a directory path in any of these forms: `.`, `./relative/path`, `/absolute/path`.
 - The path must refer to an existing directory. Otherwise the CLI reports an invalid argument and exits `1`. _(Inferred; see item 52.)_
+- Each path is converted to an absolute physical path. Symlinks are resolved, so a symlinked target is reported at its real location. This is the value of `target_directory` (Section 7.1).
+- All paths are checked before any scan starts. Every invalid path is reported, and the CLI exits `1` if any path is invalid.
 - Multiple paths are accepted. Each path is scanned separately. How multiple results are reported is **Open** (see item 58).
 
 ### 3.2 Built-in exclusions
