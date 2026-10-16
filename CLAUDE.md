@@ -51,6 +51,8 @@ CLI source (TASK_01 onward):
 - `lib/classify.sh`: file classification. `classify_target` fills `CLASSIFIED_MANIFEST`, `CLASSIFIED_SOURCE`, and `CLASSIFIED_LIFECYCLE` from `SCAN_FILES`. Source extensions (`CLASSIFY_SOURCE_EXTS`, spec item 19) are matched case-insensitively.
 - `lib/sca.sh`: SCA manifest parsers. `sca_parse_target` parses `CLASSIFIED_MANIFEST` into `SCA_ECOSYSTEM`, `SCA_NAME`, `SCA_VERSION`, and `SCA_FILE`. Skipped entries and malformed files go to `SCA_WARN_FILE` and `SCA_WARN_MSG`. `pom.xml` is read by a restricted awk parser, not `xmllint`.
 - `lib/osv.sh`: OSV advisory lookup and missing lock file check. `osv_scan` queries `https://api.osv.dev/v1/querybatch` through `osv_http_post` (the only `curl` call; tests replace it). `--offline` skips it. Failures return 1 with `OSV_ERROR` set. Severity comes from the advisory's CVSS v3 score (`severity_from_cvss_score`, `cvss3_base_score` in `lib/severity.sh`). An advisory with no CVSS v3 score fails the lookup (open, item 64).
+- `lib/popular.sh`: popular-package reference list for the typosquat check. `popular_load` uses a 4-hour cache under `$XDG_CACHE_HOME/repo-shield/` and fetches the PyPI list through `popular_http_get` (tests replace it).
+- `lib/anomaly.sh`: supply chain anomaly checks. `anomaly_scan` fills `TYPOSQUAT_SUSPECT` (PyPI) and `DEPENDENCY_CONFUSION_RISK` (from `CLI_INTERNAL_PREFIXES`).
 - `lib/report.sh`: finding model and renderers. `finding_add` stores a finding (four fields). `report_emit <format> <output file or empty> <target>` renders table, JSON, or SARIF to stdout or to a file. The optional `line` (item 29) feeds SARIF regions and snippets.
 - `lib/severity.sh`: severity defaults and exit code. `severity_default <category> [condition]` applies the spec 7.4 table. `severity_from_engine <engine> <native>` maps engine severities (one branch per engine). `severity_scan_exit_code` sets `_EXIT_CODE` from `--fail-on-critical`.
 - `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
@@ -60,6 +62,7 @@ CLI source (TASK_01 onward):
 - `tests/severity_test.sh`: severity default, engine mapping, and exit code checks. Run with `/bin/bash tests/severity_test.sh`.
 - `tests/sca_test.sh`: SCA manifest parser checks against `tests/fixtures/sca/`. Run with `/bin/bash tests/sca_test.sh`.
 - `tests/osv_test.sh`: OSV lookup checks against recorded responses in `tests/fixtures/osv/`. No network calls. Run with `/bin/bash tests/osv_test.sh`.
+- `tests/anomaly_test.sh`: typosquat and dependency confusion checks, with the popular list served from `tests/fixtures/popular/`. No network calls. Run with `/bin/bash tests/anomaly_test.sh`.
 
 ## Working conventions
 

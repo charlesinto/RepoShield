@@ -130,5 +130,13 @@ expect "multiple valid paths reach stub" 1 "$STUB" /bin/bash "$BIN" "$WORK/repo"
 out=$(/bin/bash "$BIN" "$WORK/nope" "$WORK/afile" 2>&1)
 check "every bad path is reported" "$(printf '%s\n' "$out" | grep -c 'does not exist or is not a directory')" "2"
 
+# --internal-prefix (TASK_09, spec 4.3 and 8.2): repeatable, in both syntaxes, and validated.
+expect "internal prefix shown in help" 0 "--internal-prefix=PREFIX" /bin/bash "$BIN" --help
+expect "internal prefix needs a value" 1 "option '--internal-prefix' requires a value" /bin/bash "$BIN" --internal-prefix
+expect "internal prefix cannot be empty" 1 "option '--internal-prefix' needs a prefix with no white space" /bin/bash "$BIN" --internal-prefix=
+expect "internal prefix cannot contain white space" 1 "option '--internal-prefix' needs a prefix with no white space" /bin/bash "$BIN" --internal-prefix "acme corp" .
+out=$(/bin/bash -c '. "$1/lib/cli.sh"; cli_parse_args --internal-prefix=acme- --internal-prefix acme_ .; printf "%s|" "${CLI_INTERNAL_PREFIXES[@]}"' _ "$ROOT")
+check "internal prefix is repeatable in both syntaxes" "$out" "acme-|acme_|"
+
 echo "passed: $PASS, failed: $FAIL"
 [ "$FAIL" -eq 0 ]

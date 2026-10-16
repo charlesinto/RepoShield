@@ -13,6 +13,7 @@ CLI_VERBOSE=0
 CLI_SHOW_HELP=0
 CLI_SHOW_VERSION=0
 CLI_TARGETS=()
+CLI_INTERNAL_PREFIXES=()
 
 cli_usage() {
   cat <<'EOF'
@@ -22,7 +23,10 @@ Options:
   -f, --format=FORMAT     Output format: table, json, sarif (default: table)
   -o, --output=FILE       Write findings to FILE instead of stdout
       --fail-on-critical  Exit 1 if any CRITICAL finding is present
-      --offline           Skip SCA (no OSV queries); SAST and lifecycle checks still run
+      --offline           Skip OSV queries (no network requests); SAST and lifecycle checks still run
+      --internal-prefix=PREFIX
+                          Flag unscoped dependencies starting with PREFIX as dependency
+                          confusion risks (repeatable)
   -q, --quiet             Suppress non-essential output
       --verbose           Print additional progress detail
   -h, --help              Print this help and exit
@@ -58,6 +62,15 @@ cli_set_output() {
   CLI_OUTPUT=$1
 }
 
+# Adds one internal prefix (spec 4.3, item 23). The prefix is used in a line-based list, so it
+# must not be empty or contain white space.
+cli_add_internal_prefix() {
+  case $1 in
+    '' | *[[:space:]]*) cli_usage_error "option '--internal-prefix' needs a prefix with no white space" ;;
+  esac
+  CLI_INTERNAL_PREFIXES[${#CLI_INTERNAL_PREFIXES[@]}]=$1
+}
+
 # Parses every option into the CLI_* variables. Paths go into CLI_TARGETS.
 # Path existence is checked by the target resolution stage, not here.
 cli_parse_args() {
@@ -86,8 +99,14 @@ cli_parse_args() {
         fi
         shift
         ;;
+      --internal-prefix)
+        [ $# -gt 0 ] || cli_usage_error "option '--internal-prefix' requires a value"
+        cli_add_internal_prefix "$1"
+        shift
+        ;;
       --format=*) cli_set_format "${arg#--format=}" ;;
       --output=*) cli_set_output "${arg#--output=}" ;;
+      --internal-prefix=*) cli_add_internal_prefix "${arg#--internal-prefix=}" ;;
       --fail-on-critical) CLI_FAIL_ON_CRITICAL=1 ;;
       --offline) CLI_OFFLINE=1 ;;
       --quiet) CLI_QUIET=1 ;;

@@ -1,6 +1,6 @@
 # TASK_09: Supply chain anomaly detection
 
-- **Status:** Blocked
+- **Status:** Done (with follow-ups). See `docs/progress.md`.
 - **Phase:** 2 (Multi-ecosystem SCA)
 - **Spec sections:** 4.3
 - **Depends on:** TASK_07, TASK_08
@@ -11,10 +11,10 @@ Flag typosquatting indicators and dependency confusion risks. Missing lock files
 
 ## Acceptance criteria
 
-- [ ] Typosquatting detection uses the method chosen in item 22, against the list chosen in item 22.
-- [ ] Dependency confusion detection uses the rule chosen in item 23.
-- [ ] Each flagged package produces `TYPOSQUAT_SUSPECT` or `DEPENDENCY_CONFUSION_RISK` findings, with the categories confirmed in item 62.
-- [ ] The detection method and data source are documented in the spec, not just in code.
+- [x] Typosquatting detection uses the method chosen in item 22, against the list chosen in item 22 (PyPI only).
+- [x] Dependency confusion detection uses the rule chosen in item 23.
+- [x] Each flagged package produces `TYPOSQUAT_SUSPECT` or `DEPENDENCY_CONFUSION_RISK` findings, with the categories confirmed in item 62.
+- [x] The detection method and data source are documented in the spec, not just in code (Section 4.3).
 
 ## Blockers
 

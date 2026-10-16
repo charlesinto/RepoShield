@@ -1,0 +1,13 @@
+{
+  "last_update": "2026-10-01 12:40:51",
+  "rows": [
+    {"download_count": 900, "project": "requests"},
+    {"download_count": 800, "project": "django"},
+    {"download_count": 700, "project": "flask"},
+    {"download_count": 650, "project": "sqlalchemy"},
+    {"download_count": 600, "project": "python-dateutil"},
+    {"download_count": 550, "project": "urllib3"},
+    {"download_count": 500, "project": "setuptools"},
+    {"download_count": 1000, "project": "numpy"}
+  ]
+}
