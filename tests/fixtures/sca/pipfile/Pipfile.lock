@@ -1,0 +1,4 @@
+{"_meta":{"hash":{"sha256":"fake"},"pipfile-spec":6},
+ "default":{"requests":{"version":"==2.28.1","hashes":["sha256:fake"]},
+            "mylib":{"git":"https://example.invalid/mylib.git","ref":"fake"}},
+ "develop":{"pytest":{"version":"==7.4.0"},"requests":{"version":"==2.28.1"}}}

@@ -18,7 +18,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Done | 19 (resolved) |
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Done (with follow-ups) | 29 (partly), 31, 32, 33, 34, 36, 54, 58 |
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Done (with follow-ups) | 27, 59, 62, 64 |
-| [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Not started | 56, 57, 63 |
+| [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Done (with follow-ups) | 56, 57, 63 (provisional) |
 | [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Not started | 49, 53, 61, 64 |
 | [TASK_09](tasks/TASK_09.md) | Supply chain anomaly detection | 2 | Blocked | 22, 23, 62 |
 | [TASK_10](tasks/TASK_10.md) | Built-in SAST checks | 3 | Not started | 24, 25, 29, 62 |
@@ -143,11 +143,29 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_07: SCA manifest parsers
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Items 56, 57, 63.
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Choose the `pom.xml` parsing approach before writing code. `grep` and `sed` are fragile for XML, and `${property}` placeholders need a rule.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New module `lib/sca.sh`, sourced by `bin/repo-shield`. `sca_parse_target` parses every file in `CLASSIFIED_MANIFEST` and fills `SCA_ECOSYSTEM`, `SCA_NAME`, `SCA_VERSION`, and `SCA_FILE` (one tuple per package, ecosystem `npm`, `Maven`, or `PyPI`). Each skipped entry and each malformed file adds a row to `SCA_WARN_FILE` and `SCA_WARN_MSG` (spec 2.4). Parsers: `package-lock.json` (jq, lockfile v1, v2, and v3), `package.json` (jq; ranges resolved from a sibling lock file), `Pipfile.lock` (jq), `pom.xml` (awk), and `requirements.txt` (shell). Tests: `tests/sca_test.sh`, 11 checks against committed fixtures in `tests/fixtures/sca/`, under `/bin/bash` 3.2.57. The other suites still pass (cli 41, traverse 10, classify 70, report 27, severity 11). The entry point still exits `1` at the scan stub. Nothing calls the parsers yet.
+- **Decisions made:**
+  - **pom.xml approach (decided before writing the parser):** a restricted awk parser, not `xmllint`. `xmllint` is not a hard dependency (CLAUDE.md), so a scan would give different results on hosts that do and do not have it. The parser removes comments, puts each tag on its own line, and reads only direct `<dependency>` elements under `<project><dependencies>`. Mismatched or unclosed tags make the file malformed.
+  - **Property versions** (`${...}`) are skipped with a warning, not resolved from `<properties>`. A dependency with no version (managed by a BOM) is skipped with a warning. Both are provisional.
+  - **Item 56 (working assumption):** npm lockfile v1, v2, and v3 are all read. Pipfile.lock is the single Pipenv format. Recorded in spec 9.10.
+  - **Item 57 (working assumption):** a range with no lock file is skipped with a warning. The `LOW` note in option (a) is not built, because it needs a finding category (item 62). Recorded in spec 9.10.
+  - **Item 63 (working assumption):** `dependency:list` exports are not read. Recorded in spec 9.10.
+  - **package.json with a sibling lock:** exact pins are used as written. Ranges use the lock's version. A lock that does not parse falls back to the no-lock rules, so pins are not lost.
+  - **Duplicates are kept.** A package can appear in `package.json` and in `package-lock.json`, and a Pipfile name can appear in both sections. TASK_08 removes duplicates before the OSV query. The tuple is `(ecosystem, name, version)`, and `SCA_FILE` says where it came from.
+  - **Symlinks** (spec 2.3): a `package-lock.json` that is a symlink is not read, so a range in `package.json` is then unresolved. The test covers this.
+- **Blockers identified:** Items 56, 57, and 63 are still **Open** in the spec. The parsers follow the working assumptions above. Confirm them before release.
+- **Lessons learnt:**
+  - The first version of the test checked a path that was never created. The symlink test passed with the guard removed, because the link pointed at a missing file. A mutation check (removing the `-L` guard) caught it. A mutation check is only useful if the fixture under test really exists, so check the setup when a mutation survives.
+  - Bash 3.2 does not allow a pipe into `while` if the loop must fill arrays, because the loop runs in a subshell. `sca_take` reads from a heredoc instead.
+  - `@tsv` in jq rejects objects, so the package.json filter converts a non-string spec with `tostring`.
+  - Requirements continuation lines (`pkg==1.0 \` followed by `--hash=...`) are handled by stripping the trailing `\` and then skipping option lines. Trailing spaces must be trimmed first.
+- **Things to consider:**
+  - Confirm items 56, 57, and 63. If the npm v1 lockfile is out of scope, drop that branch from `_SCA_LOCK_JQ`.
+  - Item 57: decide whether the `LOW` note should be a finding. That needs a category name (item 62), so it stays a warning for now.
+  - Property placeholders in `pom.xml` could be resolved from the same file's `<properties>`. That would find more versions, but the rule is not in the spec yet.
+  - The requirements parser does not follow `-r` includes. A project that splits its pins across files gets a warning for each include, not the pins themselves.
+  - TASK_08 must deduplicate tuples before the OSV query and use `SCA_NAME` with the OSV ecosystem names.
 
 ### TASK_08: OSV batch query and advisory findings
 

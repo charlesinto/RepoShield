@@ -120,6 +120,18 @@ The scanner reads ignore patterns from these files at the root of the scanned re
 
 Version ranges in `package.json` and `requirements.txt` are resolved from the lock file where one exists. Ranges with no lock file are **Open** (see item 57).
 
+Parsing rules (TASK_07). The rules below are working assumptions for items 56, 57, and 63 (see Section 9.10). They are provisional until those items are decided.
+
+| File                | Read                                                                                                                                 | Skipped, with a warning                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `package-lock.json` | npm lockfile versions 1, 2, and 3. The root entry and `link` entries are not packages.                                               | Unparseable file (no tuples from it).                                                                    |
+| `package.json`      | `dependencies`, `devDependencies`, `optionalDependencies`. An exact version (`1.2.3`) is used as written. A range is resolved from a parseable `package-lock.json` in the same directory. | A range with no usable lock file. Tags, URLs, and other non-version specs. Unparseable file.             |
+| `pom.xml`           | Direct `<dependency>` elements under `<project><dependencies>`, with a literal `<version>`. Coordinates are `groupId:artifactId`.     | `<dependencyManagement>`, `<profiles>`, `<build>`, and `<exclusions>` are not read. A property version (`${...}`) or no version. Malformed XML. |
+| `Pipfile.lock`      | `default` and `develop` sections, with an `==` pin. A name in both sections is kept once.                                            | Entries with no `==` pin (git, path, editable). Unparseable file.                                        |
+| `requirements.txt`  | `name==version` pins. Extras, environment markers, comments, `\` continuations, and `--hash` options are handled.                    | Ranges, bare names, URLs, paths. `-r` and `-e` lines, because the dependencies they add are not read. Other options are skipped silently. |
+
+Maven `dependency:list` exports are not read (item 63). A tuple can repeat across files, for example a `package.json` pin and the same package in `package-lock.json`. The OSV step removes duplicates before querying.
+
 ### 4.2 Advisory lookup
 
 - Collect `(package name, version)` pairs from the supported manifests and lock files.
@@ -487,8 +499,10 @@ These came out of your answers above. Each needs a decision before the related i
     - **Decision:** _TBD_ · **Status:** Open
 56. **Lock file versions (item 13).** "All versions" needs a concrete list. Which npm lockfile versions (v1, v2, v3), Pipfile.lock formats, and `pom.xml` variants?
     - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_07, provisional):** npm lockfile v1, v2, and v3. Pipfile.lock is the single Pipenv format (`default` and `develop`, `==` pins). `pom.xml` is direct dependencies with a literal version (see Section 4.1). Property versions are skipped with a warning, not resolved.
 57. **Version ranges with no lock file (item 14).** Options: (a) report as skipped with a `LOW` note; (b) other.
     - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_07, provisional):** the entry is skipped and a warning is recorded. The `LOW` note from option (a) is not built yet. It needs a finding category, which depends on item 62. `requirements.txt` ranges follow the same rule.
 58. **Multiple paths (item 38).** How are results reported? Options: (a) one combined report; (b) one report per path; (c) other.
     - **Decision:** _TBD_ · **Status:** Open
 59. **Shared exit code (Section 8.3).** Exit `1` covers both critical findings and scan errors, so CI can't tell them apart. Options: (a) keep `1` for both; (b) use a separate code for scan errors (for example `2`). Option (b) changes the exit-code table in the TRD.
@@ -501,6 +515,7 @@ These came out of your answers above. Each needs a decision before the related i
     - **Decision:** _TBD_ · **Status:** Open
 63. **Maven exports dropped (item 16).** Under option A, `dependency:list` exports are not read. The TRD lists them. Confirm.
     - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_07, provisional):** `dependency:list` exports are not read. This is what the parser does.
 64. **OSV severity mapping (Section 7.4).** OSV reports advisory severities in its own format. How do they map to `CRITICAL`, `HIGH`, `MEDIUM`, and `LOW`?
     - **Decision:** _TBD_ · **Status:** Open
 65. **Secret pattern list (item 25).** Which patterns, exactly?

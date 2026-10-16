@@ -18,6 +18,7 @@ _rs_root=$(cd -P "$(dirname "$_rs_src")/.." && pwd)
 . "$_rs_root/lib/target.sh"
 . "$_rs_root/lib/traverse.sh"
 . "$_rs_root/lib/classify.sh"
+. "$_rs_root/lib/sca.sh"
 . "$_rs_root/lib/report.sh"
 . "$_rs_root/lib/severity.sh"
 
