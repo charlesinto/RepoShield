@@ -55,13 +55,38 @@ for p in package.json.bak my-package.json requirements-dev.txt makefile Makefile
   check "near-miss name is unclassified: $p" "$(category "" "$p")" ""
 done
 
-# Item 19 is open, so the source extension list is empty. Source files are not classified yet.
-check "source file is unclassified while item 19 is open" "$(category "" "main.py")" ""
-check "source file with no list is unclassified" "$(category "" "app.js")" ""
+# The module's own list (spec item 19). default_category uses it without an override.
+default_category() {
+  /bin/bash -c '. "$1/lib/classify.sh"; classify_path "$2"; printf %s "$CLASSIFY_RESULT"' _ "$ROOT" "$1"
+}
+
+# Decided list: JavaScript/TypeScript, JVM, Python, Rust, C/C++, and shell scripts.
+for p in app.js lib/index.mjs x.cjs a.jsx a.ts a.tsx Main.java k.kt build.gradle.kts g.groovy s.scala \
+  main.py lib.rs util.c util.h x.cc x.cpp x.cxx x.hpp x.hh install.sh run.bash; do
+  check "source by extension: $p" "$(default_category "$p")" "source"
+done
+
+# Case does not matter for extensions (item 19), and the caller's nocasematch setting is kept.
+for p in APP.JS Main.Java main.PY lib.Rs run.SH setup.BASH; do
+  check "source by extension, any case: $p" "$(default_category "$p")" "source"
+done
+check "nocasematch is restored after classification" \
+  "$(/bin/bash -c '. "$1/lib/classify.sh"; classify_path a.PY; shopt -q nocasematch && echo on || echo off' _ "$ROOT")" "off"
+
+# Extensions outside the decided list are not classified.
+for p in notes.md data.json Dockerfile go.mod main.go styles.css .bashrc archive.tar.gz; do
+  check "not a decided source extension: $p" "$(default_category "$p")" ""
+done
+
+# Name rules still win over the extension rule with the decided list.
+check "setup.py is lifecycle with the decided list" "$(default_category "setup.py")" "lifecycle"
+check "package.json is manifest with the decided list" "$(default_category "package.json")" "manifest"
 
 # With extensions set, a source file is classified by its extension.
 check "source by extension" "$(category "py js" "lib/main.py")" "source"
 check "extension match is exact" "$(category "py" "main.pyc")" ""
+check "override list is case-insensitive" "$(category "py" "main.PY")" "source"
+check "empty override list classifies no source" "$(category "" "main.py")" ""
 
 # Precedence: name rules win over the extension rule, so each file is in one category only.
 check "setup.py is lifecycle, not source" "$(category "py" "setup.py")" "lifecycle"
@@ -87,7 +112,7 @@ check "fixture tree: one category per file, unmatched files left out" \
     "manifest app/package.json" \
     "source app/src/index.js" | sort)"
 
-# With the list empty (item 19 open), only names are classified.
+# With the list empty, only names are classified.
 check "fixture tree with empty source list" \
   "$(classify "$F" "")" \
   "$(printf '%s\n' \

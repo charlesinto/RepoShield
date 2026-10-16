@@ -13,9 +13,16 @@
 CLASSIFY_MANIFEST_NAMES=(package.json package-lock.json pom.xml Pipfile.lock requirements.txt)
 CLASSIFY_LIFECYCLE_NAMES=(setup.py setup.cfg build.rs Makefile)
 
-# Source code extensions, without the dot. PENDING spec item 19: the list is not decided,
-# so it is empty and no file is classified as source. Fill it in once item 19 is decided.
-CLASSIFY_SOURCE_EXTS=()
+# Source code extensions, without the dot (spec item 19). Matched case-insensitively, so
+# "PY" and "Py" match "py". Shell scripts count as source.
+CLASSIFY_SOURCE_EXTS=(
+  js mjs cjs jsx ts tsx
+  java kt kts groovy scala
+  py
+  rs
+  c h cc cpp cxx hpp hh
+  sh bash
+)
 
 CLASSIFIED_MANIFEST=()
 CLASSIFIED_SOURCE=()
@@ -26,7 +33,7 @@ CLASSIFIED_LIFECYCLE=()
 # (setup.py is lifecycle, not source). Manifest names come first for the same reason.
 # No forks, so a large tree is classified in one pass.
 classify_path() {
-  local base=${1##*/} n e
+  local base=${1##*/} n e was_nc hit=0
 
   CLASSIFY_RESULT=""
   for n in "${CLASSIFY_MANIFEST_NAMES[@]}"; do
@@ -48,12 +55,21 @@ classify_path() {
     *) return 0 ;;
   esac
   e=${base##*.}
+
+  # nocasematch makes the case compare ignore case (Bash 3.1 and later). The previous setting
+  # is restored after the loop, so the caller's shell options are unchanged.
+  shopt -q nocasematch && was_nc=1 || was_nc=0
+  shopt -s nocasematch
   for n in "${CLASSIFY_SOURCE_EXTS[@]}"; do
-    if [ "$e" = "$n" ]; then
-      CLASSIFY_RESULT=source
-      return 0
-    fi
+    case $e in
+      "$n") hit=1; break ;;
+    esac
   done
+  [ "$was_nc" -eq 1 ] || shopt -u nocasematch
+
+  if [ "$hit" -eq 1 ]; then
+    CLASSIFY_RESULT=source
+  fi
   return 0
 }
 
