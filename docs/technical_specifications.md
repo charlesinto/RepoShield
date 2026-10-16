@@ -270,7 +270,9 @@ Default severities (decided, item 21):
 | `VULNERABLE_DEPENDENCY` | Matched OSV advisory                        | Advisory severity, mapped to the four levels (mapping **Open**, see item 64) |
 | `MISSING_LOCKFILE`      | Manifest with no lock file                  | `LOW`                                                                        |
 
-Defaults for `SECRET_EXPOSED`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, and `PATH_TRAVERSAL_HOOK` are **Open**.
+Defaults for `SECRET_EXPOSED`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, and `PATH_TRAVERSAL_HOOK` are **Open**. Until they are decided, the implementation gives each one `HIGH` (provisional).
+
+Engine severities (item 27, working default, not yet decided): a rule with no native severity is `MEDIUM`. A native level name (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, in any case) maps to itself. Any other native value has no mapping yet and is an error for the engine that produced it.
 
 ### 7.5 Suppressing a finding
 
