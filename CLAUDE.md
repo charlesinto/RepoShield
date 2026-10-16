@@ -46,6 +46,7 @@ CLI source (TASK_01 onward):
 
 - `bin/repo-shield`: entry point. Holds `REPO_SHIELD_VERSION` and resolves its own `lib/` through symlinks.
 - `lib/cli.sh`: argument parser, usage, and dependency check. Parsed options live in `CLI_*` variables.
+- `lib/target.sh`: target path resolution. Resolved absolute directories live in `TARGET_DIRS`.
 - `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
 
 ## Working conventions

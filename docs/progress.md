@@ -13,7 +13,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | Task | Title | Phase | Status | Blockers (spec items) |
 | --- | --- | --- | --- | --- |
 | [TASK_01](tasks/TASK_01.md) | CLI skeleton and exit codes | 1 | Done | 59 |
-| [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Not started | 52, 58 |
+| [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Done (with follow-ups) | 52, 58 |
 | [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Not started | 55, 60 |
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Not started | 19 |
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Not started | 29, 30, 31, 32, 33, 34, 36, 54, 58 |
@@ -42,11 +42,11 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_02: Target path resolution
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Item 52 (inferred rule), item 58 (multi-path reporting).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Resolve symlinked top-level targets once.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New module `lib/target.sh`, sourced by `bin/repo-shield` after the dependency check. `target_resolve_all` turns each entry in `CLI_TARGETS` into an absolute physical path in `TARGET_DIRS`, in command-line order. `cd -P` resolves symlinks, so a chained symlink is resolved once to its real path. Every invalid path is reported, then the CLI exits `1`, before any scan starts. Scanning is still the TASK_01 stub, so a valid run still exits `1` with "scanning is not implemented yet". Tests: 41 checks in `tests/cli_test.sh`, passing under `/bin/bash` 3.2.57. Two TASK_01 checks now use real fixture directories, because a nonexistent path fails validation first. Spec 3.1 and `CLAUDE.md` layout updated.
+- **Blockers identified:** Item 52 (existing-directory rule, still Open) and item 58 (multi-path reporting, still Open). Both are built as specified. Item 58 only affects output, so it is handled in TASK_05. Item 52 needs confirmation before release.
+- **Lessons learnt:** With `CDPATH` set, `cd` resolves a relative path against `CDPATH` entries, so a relative target could resolve to the wrong directory. The resolver clears `CDPATH` for that `cd`. A mutation check (removing the guard) makes the CDPATH test fail, so the test covers the bug. macOS temp directories are under `/var`, which is a symlink to `/private/var`, so tests compare against `pwd -P`, not the raw path.
+- **Things to consider:** "Each is scanned separately" is only met in resolution so far. Per-path scanning comes with the scan pipeline (TASK_03 onward). Confirm item 52 before release. TASK_03 can read `TARGET_DIRS` directly.
 
 ### TASK_03: Ignore rules and safe traversal
 

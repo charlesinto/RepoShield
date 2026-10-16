@@ -15,9 +15,11 @@ done
 _rs_root=$(cd -P "$(dirname "$_rs_src")/.." && pwd)
 
 . "$_rs_root/lib/cli.sh"
+. "$_rs_root/lib/target.sh"
 
 cli_parse_args "$@"
 cli_check_dependencies
+target_resolve_all
 
 # Scanning is added by later tasks. Until then, fail rather than report a clean result.
 echo "repo-shield: scanning is not implemented yet" >&2
