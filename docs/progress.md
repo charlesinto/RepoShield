@@ -15,7 +15,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_01](tasks/TASK_01.md) | CLI skeleton and exit codes | 1 | Done | 59 |
 | [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Done (with follow-ups) | 52, 58 |
 | [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Done (with follow-ups) | 55, 60 |
-| [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Not started | 19 |
+| [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Done | 19 (resolved) |
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Not started | 29, 30, 31, 32, 33, 34, 36, 54, 58 |
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Not started | 27, 59, 62, 64 |
 | [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Not started | 56, 57, 63 |
@@ -69,11 +69,19 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_04: File classification (dispatcher)
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Item 19 (source extension list).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Decide whether `setup.py` is classed as source or lifecycle. Record the decision here.
+- **Status:** Done
+- **Outcome:** New module `lib/classify.sh`, sourced by `bin/repo-shield`. `classify_target` fills `CLASSIFIED_MANIFEST`, `CLASSIFIED_SOURCE`, and `CLASSIFIED_LIFECYCLE` from `SCAN_FILES`. `classify_path` matches the base name exactly against `CLASSIFY_MANIFEST_NAMES` and `CLASSIFY_LIFECYCLE_NAMES`, then the extension against `CLASSIFY_SOURCE_EXTS`. The source list is decided (spec item 19). Tests: `tests/classify_test.sh`, 70 checks, passing under `/bin/bash` 3.2.57. Mutation checks: removing the dotless-name guard fails 1 check; moving the extension rule ahead of the name rules fails 3; disabling `nocasematch` fails 7. The entry point still exits `1` with the scanning stub. Spec Section 2 and item 19 record the rules.
+- **Decisions made:**
+  - `setup.py` is lifecycle, not source. Name rules run before the extension rule, so a lifecycle or manifest name always wins. This matches the acceptance criteria, which list `setup.py` as lifecycle.
+  - Names match the base name at any depth, exactly and case-sensitively. `makefile`, `Makefile.bak`, and `requirements-dev.txt` are not classified.
+  - Source extensions (item 19, decided by the user): `js mjs cjs jsx ts tsx java kt kts groovy scala py rs c h cc cpp cxx hpp hh sh bash`. Matched case-insensitively. Shell scripts are source. Go is not listed.
+  - Lifecycle names: `setup.py`, `setup.cfg`, `build.rs`, `Makefile`. Manifest names: the five in the acceptance criteria.
+- **Blockers identified:** None. Item 19 is resolved.
+- **Lessons learnt:** A mutation that only inserts a check before existing checks does not change behavior when the later checks overwrite the result. Use an early `return` in the mutant. Pure-Bash suffix matching (`${base##*.}`) with a dot guard avoids a fork per file. Case-insensitive matching uses `shopt -s nocasematch` (Bash 3.1 and later), set only around the extension loop and restored afterwards, so there is no `tr` fork per file.
+- **Things to consider:**
+  - Go (`.go`) is not in the list. Add it if Go repositories should get SAST.
+  - Confirm that `makefile` (lowercase) and `GNUmakefile` should stay unclassified.
+  - TASK_10 (SAST) can now read `CLASSIFIED_SOURCE`.
 
 ### TASK_05: Finding model and output renderers
 

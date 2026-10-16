@@ -32,6 +32,8 @@ The CLI is a modular Bash program. Work flows through four stages:
 | **Analysis Engines**            | Run in parallel on the classified files (see below).                                             |
 | **Aggregation & Report Engine** | Normalize severities, render the chosen output format, and compute the exit code.                |
 
+Classification rules: each file goes to at most one category. Manifests and lifecycle files are matched by exact base name at any depth. Source files are matched by extension. A name rule wins over the extension rule, so `setup.py` is lifecycle, not source. A file that matches no rule is not scanned. Source extensions are listed in item 19 and matched case-insensitively.
+
 ### 2.1 Analysis engines
 
 | Engine               | Input                    | Responsibilities                                                                                                          |
@@ -59,13 +61,13 @@ RepoShield reads untrusted repositories, so the following are hard requirements:
 
 ### 2.4 Failure behavior
 
-| Condition | Behavior | Exit code |
-| --- | --- | --- |
-| OSV is unreachable, times out, or is rate-limited | The scan fails. No partial SCA results are reported as complete. | `1` |
-| Required tool (`jq` or `curl`) is missing | Fail fast with a message. | `1` |
-| Target directory is empty or has no supported manifests | Report zero findings. | `0` |
-| `-o` output file cannot be written | Report the error. | `1` |
-| One file cannot be read, or one engine fails on one file | Skip that file, record a warning, and continue. | Unchanged by the skipped file |
+| Condition                                                | Behavior                                                         | Exit code                     |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------- |
+| OSV is unreachable, times out, or is rate-limited        | The scan fails. No partial SCA results are reported as complete. | `1`                           |
+| Required tool (`jq` or `curl`) is missing                | Fail fast with a message.                                        | `1`                           |
+| Target directory is empty or has no supported manifests  | Report zero findings.                                            | `0`                           |
+| `-o` output file cannot be written                       | Report the error.                                                | `1`                           |
+| One file cannot be read, or one engine fails on one file | Skip that file, record a warning, and continue.                  | Unchanged by the skipped file |
 
 ---
 
@@ -110,11 +112,11 @@ The scanner reads ignore patterns from these files at the root of the scanned re
 
 ### 4.1 Supported ecosystems
 
-| Ecosystem               | Files                                                                   |
-| ----------------------- | ----------------------------------------------------------------------- |
+| Ecosystem               | Files                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------- |
 | JavaScript / TypeScript | `package.json`, `package-lock.json` (all npm lockfile versions; see item 56) |
-| Java / JVM              | `pom.xml` (parsed directly)                                              |
-| Python                  | `Pipfile.lock`, `requirements.txt`                                      |
+| Java / JVM              | `pom.xml` (parsed directly)                                                  |
+| Python                  | `Pipfile.lock`, `requirements.txt`                                           |
 
 Version ranges in `package.json` and `requirements.txt` are resolved from the lock file where one exists. Ranges with no lock file are **Open** (see item 57).
 
@@ -162,11 +164,11 @@ Engine findings are normalized into the same finding schema as built-in checks. 
 
 ### 6.1 Hook extraction
 
-| Ecosystem  | Source                  | Hooks                                                                                              |
-| ---------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Node.js    | `package.json`          | `preinstall`, `postinstall`, `prepare`                                                             |
-| Python     | `setup.py`, `setup.cfg` | Known executing calls, matched statically (for example `os.system` and `subprocess`).              |
-| Rust / C++ | `build.rs`, Makefiles   | Build-time commands, checked against the same network and shell list as Section 6.2.              |
+| Ecosystem  | Source                  | Hooks                                                                                 |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| Node.js    | `package.json`          | `preinstall`, `postinstall`, `prepare`                                                |
+| Python     | `setup.py`, `setup.cfg` | Known executing calls, matched statically (for example `os.system` and `subprocess`). |
+| Rust / C++ | `build.rs`, Makefiles   | Build-time commands, checked against the same network and shell list as Section 6.2.  |
 
 ### 6.2 Heuristic flags
 
@@ -186,12 +188,12 @@ A flagged `postinstall` that performs a network call and pipes it to a shell is 
 
 Every finding has these fields:
 
-| Field         | Type   | Description                                                                                                                                                       |
-| ------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `category`    | string | Finding type. Known values: `VULNERABLE_DEPENDENCY`, `MALICIOUS_BUILD_HOOK`. Other category names are provisional (see Section 7.4 and item 20).                   |
-| `severity`    | string | One of `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`.                                                                                                                       |
-| `file`        | string | File path, relative to the target directory. _(Inferred; see item 54.)_                                                                                           |
-| `description` | string | Human-readable explanation.                                                                                                                                       |
+| Field         | Type   | Description                                                                                                                                      |
+| ------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `category`    | string | Finding type. Known values: `VULNERABLE_DEPENDENCY`, `MALICIOUS_BUILD_HOOK`. Other category names are provisional (see Section 7.4 and item 20). |
+| `severity`    | string | One of `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`.                                                                                                      |
+| `file`        | string | File path, relative to the target directory. _(Inferred; see item 54.)_                                                                          |
+| `description` | string | Human-readable explanation.                                                                                                                      |
 
 Additional fields (`line`, `rule_id`, `advisory_id`, `fingerprint`, `schema_version`) are **Open** (item 29).
 
@@ -244,14 +246,14 @@ Severity levels, highest to lowest: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. All eng
 
 Default severities (decided, item 21):
 
-| Category | Condition | Severity |
-| --- | --- | --- |
-| `MALICIOUS_BUILD_HOOK` | Hook makes a network call piped to a shell | `CRITICAL` |
-| `MALICIOUS_BUILD_HOOK` | Hook makes a network call (no shell pipe) | `HIGH` |
-| `REVERSE_SHELL` | Socket bound to a shell binary, remote host | `CRITICAL` |
-| `OBFUSCATED_EXECUTION` | Encoded payload with an execution sink | `HIGH` |
-| `VULNERABLE_DEPENDENCY` | Matched OSV advisory | Advisory severity, mapped to the four levels (mapping **Open**, see item 64) |
-| `MISSING_LOCKFILE` | Manifest with no lock file | `LOW` |
+| Category                | Condition                                   | Severity                                                                     |
+| ----------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
+| `MALICIOUS_BUILD_HOOK`  | Hook makes a network call piped to a shell  | `CRITICAL`                                                                   |
+| `MALICIOUS_BUILD_HOOK`  | Hook makes a network call (no shell pipe)   | `HIGH`                                                                       |
+| `REVERSE_SHELL`         | Socket bound to a shell binary, remote host | `CRITICAL`                                                                   |
+| `OBFUSCATED_EXECUTION`  | Encoded payload with an execution sink      | `HIGH`                                                                       |
+| `VULNERABLE_DEPENDENCY` | Matched OSV advisory                        | Advisory severity, mapped to the four levels (mapping **Open**, see item 64) |
+| `MISSING_LOCKFILE`      | Manifest with no lock file                  | `LOW`                                                                        |
 
 Defaults for `SECRET_EXPOSED`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, and `PATH_TRAVERSAL_HOOK` are **Open**.
 
@@ -271,16 +273,16 @@ repo-shield [OPTIONS] <path-to-repository> [<path-to-repository>...]
 
 ### 8.2 Options
 
-| Flag | Long form            | Argument             | Description                                                   |
-| ---- | -------------------- | -------------------- | ------------------------------------------------------------- |
-| `-f` | `--format`           | `table\|json\|sarif` | Output format. Default: `table`.                              |
-| `-o` | `--output`           | `<file>`             | Write findings to a file instead of stdout.                   |
-|      | `--fail-on-critical` | none                 | Exit `1` if any `CRITICAL` finding is present.                |
+| Flag | Long form            | Argument             | Description                                                     |
+| ---- | -------------------- | -------------------- | --------------------------------------------------------------- |
+| `-f` | `--format`           | `table\|json\|sarif` | Output format. Default: `table`.                                |
+| `-o` | `--output`           | `<file>`             | Write findings to a file instead of stdout.                     |
+|      | `--fail-on-critical` | none                 | Exit `1` if any `CRITICAL` finding is present.                  |
 |      | `--offline`          | none                 | Skip SCA (no OSV queries). SAST and lifecycle checks still run. |
-| `-q` | `--quiet`            | none                 | Suppress non-essential output.                                |
-|      | `--verbose`          | none                 | Print additional progress detail.                             |
-| `-h` | `--help`             | none                 | Print usage and exit.                                         |
-| `-v` | `--version`          | none                 | Print the scanner version and exit.                           |
+| `-q` | `--quiet`            | none                 | Suppress non-essential output.                                  |
+|      | `--verbose`          | none                 | Print additional progress detail.                               |
+| `-h` | `--help`             | none                 | Print usage and exit.                                           |
+| `-v` | `--version`          | none                 | Print the scanner version and exit.                             |
 
 Argument syntax: `--format=json`, combined short flags (for example `-fjson`), and `--` as the end-of-options marker are all supported.
 
@@ -288,12 +290,12 @@ There is no configuration file.
 
 ### 8.3 Exit codes
 
-| Code | Meaning                                                                                                                                                  |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Scan completed. No blocking findings (or `--fail-on-critical` not set). Includes empty directories and directories with no supported manifests.          |
-| `1`  | `--fail-on-critical` is set and at least one `CRITICAL` finding exists.                                                                                 |
-| `1`  | Invalid CLI arguments: unknown flag, invalid `--format` value (usage lists the valid values), missing or non-directory path.                           |
-| `1`  | Required tool missing, OSV unavailable, or `-o` file cannot be written (see Section 2.4).                                                               |
+| Code | Meaning                                                                                                                                         |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Scan completed. No blocking findings (or `--fail-on-critical` not set). Includes empty directories and directories with no supported manifests. |
+| `1`  | `--fail-on-critical` is set and at least one `CRITICAL` finding exists.                                                                         |
+| `1`  | Invalid CLI arguments: unknown flag, invalid `--format` value (usage lists the valid values), missing or non-directory path.                    |
+| `1`  | Required tool missing, OSV unavailable, or `-o` file cannot be written (see Section 2.4).                                                       |
 
 Without `--fail-on-critical`, findings of any severity do not change the exit code. Exit `1` is shared between findings and errors. Whether to separate them is **Open** (item 59).
 
@@ -359,8 +361,8 @@ Items 1 to 14 are the gaps from the first review of `RepoShield.md`. They are gr
 18. **Makefile and `build.rs` commands.**
     - **Decision:** A: same network and shell list as Section 6.2. · **Status:** Resolved (Section 6.1)
 19. **Source code classification.**
-    - Extension list: _TBD_
-    - **Decision:** _TBD_ · **Status:** Open
+    - Extension list: `js`, `mjs`, `cjs`, `jsx`, `ts`, `tsx` (JavaScript / TypeScript); `java`, `kt`, `kts`, `groovy`, `scala` (JVM); `py` (Python); `rs` (Rust); `c`, `h`, `cc`, `cpp`, `cxx`, `hpp`, `hh` (C / C++); `sh`, `bash` (shell scripts). Go is not listed.
+    - **Decision:** Source files are classified by file extension, matched case-insensitively (`.PY` and `.py` are both source). Shell scripts are source. Name rules (manifests and lifecycle files) take precedence, so `setup.py` stays lifecycle. · **Status:** Resolved
 20. **Finding category names.**
     - **Decision:** _TBD_. Proposed names are used provisionally in Section 7.4 because item 21 was accepted. · **Status:** Open (see item 62)
 
@@ -493,15 +495,15 @@ These came out of your answers above. Each needs a decision before the related i
 
 ## 10. Non-Functional Requirements
 
-| Requirement   | Target                                                                                                     |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| Performance   | Repositories under 100 MB complete in under 10 seconds. Reference machine and benchmark: see item 47.     |
-| Dependencies  | POSIX utilities, `jq`, and `curl` only. `yara` and `semgrep` are optional.                                 |
+| Requirement   | Target                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Performance   | Repositories under 100 MB complete in under 10 seconds. Reference machine and benchmark: see item 47.                          |
+| Dependencies  | POSIX utilities, `jq`, and `curl` only. `yara` and `semgrep` are optional.                                                     |
 | Compatibility | Bash 3.2 compatible. Portable across BSD and GNU tools. macOS (Intel and Apple Silicon); Linux (Ubuntu, Debian, RHEL, Fedora). |
-| Exit codes    | As defined in Section 8.3.                                                                                 |
-| Packaging     | Modules installed under `libexec`, with the entry point linked into `bin`.                                  |
-| Versioning    | Semantic versioning. The version string is stored in the script.                                            |
-| Distribution  | Homebrew formula, with automated version updates.                                                          |
+| Exit codes    | As defined in Section 8.3.                                                                                                     |
+| Packaging     | Modules installed under `libexec`, with the entry point linked into `bin`.                                                     |
+| Versioning    | Semantic versioning. The version string is stored in the script.                                                               |
+| Distribution  | Homebrew formula, with automated version updates.                                                                              |
 
 ---
 

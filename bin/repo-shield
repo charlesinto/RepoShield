@@ -17,6 +17,7 @@ _rs_root=$(cd -P "$(dirname "$_rs_src")/.." && pwd)
 . "$_rs_root/lib/cli.sh"
 . "$_rs_root/lib/target.sh"
 . "$_rs_root/lib/traverse.sh"
+. "$_rs_root/lib/classify.sh"
 
 cli_parse_args "$@"
 cli_check_dependencies
