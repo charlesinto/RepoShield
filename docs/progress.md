@@ -14,7 +14,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | --- | --- | --- | --- | --- |
 | [TASK_01](tasks/TASK_01.md) | CLI skeleton and exit codes | 1 | Done | 59 |
 | [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Done (with follow-ups) | 52, 58 |
-| [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Not started | 55, 60 |
+| [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Done (with follow-ups) | 55, 60 |
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Not started | 19 |
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Not started | 29, 30, 31, 32, 33, 34, 36, 54, 58 |
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Not started | 27, 59, 62, 64 |
@@ -50,11 +50,22 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_03: Ignore rules and safe traversal
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Item 60 (`.gitignore` conflict with the TRD), item 55 (binary files).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** `.repo-shield-ignore` syntax is not specified. Working assumption: `.gitignore`-style globs. Confirm and record here.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New module `lib/traverse.sh`, sourced by `bin/repo-shield`. `traverse_target <dir>` walks the target with `find -print0` and fills `SCAN_FILES` (regular files) and `SCAN_SKIPPED` (symlinks and special files), both relative to `SCAN_ROOT`. Built-in directories are pruned inside `find`, so their contents are never listed. `.repo-shield-ignore` is parsed as data and compiled to ERE. Patterns are applied in order, and the last match wins. `.gitignore` is never read for exclusion. The entry point still exits `1` with the scanning stub. Tests: `tests/traverse_test.sh`, 10 checks, passing under `/bin/bash` 3.2.57. A mutation check (following symlinks; making `.gitignore` exclude) makes the tests fail. A 23,000-file tree, of which 20,000 are under `node_modules`, traverses in 0.56s.
+- **Decisions made:**
+  - `.repo-shield-ignore` syntax: gitignore-style globs (working assumption, recorded in spec 3.3). Supported: `#` comments, `!` re-include, trailing `/` for directories, anchoring by an inner `/`, `*`, `?`, `[...]`, and `**`.
+  - `.gitignore` handling is one function, `traverse_gitignore_excludes`, which returns "not excluded" for every path (item 60, current decision).
+  - Binary files are scanned as text (item 55, current decision). No size limit.
+  - Special files (FIFOs, sockets, devices) are skipped and recorded with symlinks in `SCAN_SKIPPED`. The spec does not mention them; this is an added rule.
+  - A symlinked `.repo-shield-ignore` is not read.
+- **Blockers identified:** Item 60 (`.gitignore` conflict with the TRD) and item 55 (binary files). Both are still **Open** in the spec. The build follows the current decision for each.
+- **Lessons learnt:** `find -prune` must come before `-print0`, and the built-in names apply only to directories (`-type d`). A file named `dist` must still be scanned. The `find` walk lists a directory before its children, so an ignored directory can be remembered as a prefix and skipped without a per-file pattern check. Bash 3.2 has no `${s:-1}` negative substring, so the glob translator guards index `-1`. Using `printf %q` in the test output keeps a name with a newline on one line.
+- **Things to consider:**
+  - Spec 3.3 says the scanner reads `.gitignore`, but nothing reads it yet. This is consistent with item 60 (it never excludes). Decide whether the report needs it, and if so, read it in `traverse_gitignore_excludes`.
+  - The glob translator is hand-written. Patterns with a `[` class that is not closed, or a `]` as the first class character, are not fully handled. Check before TASK_07 relies on these patterns.
+  - Trailing whitespace in ignore lines is kept as part of the pattern, not trimmed. Confirm the rule.
+  - Unreadable directories make `find` write warnings to stderr and carry on. TASK_05 should record them as warnings, per spec 2.4.
+  - Symlinked directories are recorded, not descended, and symlinked ignore files are ignored. Confirm that this is the intended scope for item 9.
 
 ### TASK_04: File classification (dispatcher)
 
