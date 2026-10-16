@@ -43,7 +43,7 @@ docs/                    specification, progress log, and task files
 Run each suite under `/bin/bash` so the Bash 3.2 requirement is tested:
 
 ```sh
-for t in cli traverse classify report severity sca; do /bin/bash tests/${t}_test.sh; done
+for t in cli traverse classify report severity sca osv; do /bin/bash tests/${t}_test.sh; done
 ```
 
 There is no build step.

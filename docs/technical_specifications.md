@@ -139,8 +139,15 @@ Maven `dependency:list` exports are not read (item 63). A tuple can repeat acros
 - Ecosystem identifiers sent to OSV: `npm`, `Maven`, `PyPI`.
 - Parse the JSON response with `jq`.
 - Each matched advisory becomes a `VULNERABLE_DEPENDENCY` finding. The description includes the package, version, and advisory ID (for example, `GHSA-...`). _(Inferred; see item 53.)_
-- Results may be cached in a user directory with a time-to-live. The TTL value is **Open** (see item 61).
-- Request and total timeouts are **Open** (see Section 9, item 49).
+- Results may be cached in a user directory with a time-to-live. The TTL value is **Open** (see item 61). The cache is not built yet.
+- Request and total timeouts are **Open** (see Section 9, item 49). Placeholder values in the implementation: connect 10 s, total 60 s.
+- Batch size: placeholder 100 queries per request. OSV's documented per-request limit is not verified yet (item 15).
+- Pages: a result with `next_page_token` is queried again with that token until no token is returned. Each request body holds only ecosystem, name, version, and the page token.
+- Failure (spec 2.4): unreachable, timed out, HTTP 429, any other non-200 status, or an unparseable or mismatched response fails the whole lookup with exit `1`. No partial result is reported.
+- `--offline` (spec 8.2): no request is made, and the missing-lock check in Section 4.3 is skipped too.
+- Missing lock (Section 4.3): a `package.json` with no regular `package-lock.json` beside it gets a `MISSING_LOCKFILE` finding at `LOW`. `requirements.txt` and `pom.xml` are not checked yet (no lock convention decided).
+- Severity of a matched advisory (item 64): the CVSS v3 base score, computed from the advisory's `CVSS_V3` vector (OSV returns the vector, not the number), mapped to the Section 7.4 bands. The advisory is fetched from `https://api.osv.dev/v1/vulns/{id}` once per scan. CVSS v3.0 and v3.1 are computed. CVSS v4 vectors are not computed.
+- An advisory with no CVSS v3 score cannot be mapped. The lookup fails with exit `1` and names the advisory, until item 64 says what to do.
 
 ### 4.3 Supply chain anomalies
 
@@ -279,7 +286,7 @@ Default severities (decided, item 21):
 | `MALICIOUS_BUILD_HOOK`  | Hook makes a network call (no shell pipe)   | `HIGH`                                                                       |
 | `REVERSE_SHELL`         | Socket bound to a shell binary, remote host | `CRITICAL`                                                                   |
 | `OBFUSCATED_EXECUTION`  | Encoded payload with an execution sink      | `HIGH`                                                                       |
-| `VULNERABLE_DEPENDENCY` | Matched OSV advisory                        | Advisory severity, mapped to the four levels (mapping **Open**, see item 64) |
+| `VULNERABLE_DEPENDENCY` | Matched OSV advisory                        | From the advisory's CVSS v3 base score: 9.0 to 10.0 `CRITICAL`, 7.0 to 8.9 `HIGH`, 4.0 to 6.9 `MEDIUM`, 0.1 to 3.9 `LOW` (item 64). An advisory with no CVSS v3 score is **Open** (see item 64). |
 | `MISSING_LOCKFILE`      | Manifest with no lock file                  | `LOW`                                                                        |
 
 Defaults for `SECRET_EXPOSED`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, and `PATH_TRAVERSAL_HOOK` are **Open**. Until they are decided, the implementation gives each one `HIGH` (provisional).
@@ -471,6 +478,7 @@ Items 1 to 14 are the gaps from the first review of `RepoShield.md`. They are gr
 49. **Timeouts.**
     - Per-request: _TBD_ · Total: _TBD_
     - **Decision:** _TBD_ · **Status:** Open
+    - **Placeholder (TASK_08, provisional):** connect 10 s, total 60 s. See Section 4.2.
 50. **Homebrew tap and release details.**
     - Canonical GitHub owner: _TBD_ (the TRD uses both `your-org` and `charlesinto`)
     - Checksum: the formula's `sha256` is the hash of an empty file and must be replaced at release. Confirm: yes / no.
@@ -487,6 +495,7 @@ These statements are in the spec but are not explicit in `RepoShield.md`. They a
     - **Decision:** _TBD_ · **Status:** Open
 53. **Section 4.2:** the finding description includes the advisory ID.
     - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_08, provisional):** the description includes the package, version, ecosystem, and advisory ID. It is built, but no finding is emitted until item 64 is decided.
 54. **Section 7.1:** the `file` field is relative to the target directory.
     - **Decision:** _TBD_ · **Status:** Open
 
@@ -511,13 +520,14 @@ These came out of your answers above. Each needs a decision before the related i
     - **Decision:** _TBD_ · **Status:** Open
 61. **OSV cache TTL (item 48).** Value: _TBD_
     - **Decision:** _TBD_ · **Status:** Open
+    - **Note (TASK_08):** the cache is not built until a TTL is chosen.
 62. **Category names (item 20).** Confirm the proposed names. Item 21 is already written using them. Proposed: `SECRET_EXPOSED`, `OBFUSCATED_EXECUTION`, `REVERSE_SHELL`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, `MISSING_LOCKFILE`, `PATH_TRAVERSAL_HOOK`.
     - **Decision:** _TBD_ · **Status:** Open
 63. **Maven exports dropped (item 16).** Under option A, `dependency:list` exports are not read. The TRD lists them. Confirm.
     - **Decision:** _TBD_ · **Status:** Open
     - **Working assumption (TASK_07, provisional):** `dependency:list` exports are not read. This is what the parser does.
 64. **OSV severity mapping (Section 7.4).** OSV reports advisory severities in its own format. How do they map to `CRITICAL`, `HIGH`, `MEDIUM`, and `LOW`?
-    - **Decision:** _TBD_ · **Status:** Open
+    - **Decision:** The CVSS v3 base score maps to the levels: 9.0 to 10.0 `CRITICAL`, 7.0 to 8.9 `HIGH`, 4.0 to 6.9 `MEDIUM`, 0.1 to 3.9 `LOW`. · **Status:** Partially resolved. Open: an advisory with no CVSS v3 score (CVSS v4 only, or none) has no mapping. The lookup fails for it for now.
 65. **Secret pattern list (item 25).** Which patterns, exactly?
     - **Decision:** _TBD_ · **Status:** Open
 66. **Suppression entry format (item 28).** What fields does an entry have? Are suppressed findings counted in the totals?

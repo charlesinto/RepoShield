@@ -19,7 +19,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Done (with follow-ups) | 29 (partly), 31, 32, 33, 34, 36, 54, 58 |
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Done (with follow-ups) | 27, 59, 62, 64 |
 | [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Done (with follow-ups) | 56, 57, 63 (provisional) |
-| [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Not started | 49, 53, 61, 64 |
+| [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Done (with follow-ups) | 61 (cache not built); 49, 15 (placeholders); 64 (partly: no CVSS v3 score) |
 | [TASK_09](tasks/TASK_09.md) | Supply chain anomaly detection | 2 | Blocked | 22, 23, 62 |
 | [TASK_10](tasks/TASK_10.md) | Built-in SAST checks | 3 | Not started | 24, 25, 29, 62 |
 | [TASK_11](tasks/TASK_11.md) | Optional YARA and Semgrep engines | 3 | Blocked | 27 |
@@ -169,11 +169,29 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_08: OSV batch query and advisory findings
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Items 49 (timeouts), 53 (advisory ID, inferred), 61 (cache TTL), 64 (severity mapping).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Test against recorded responses, not live calls. Check whether OSV batch responses need follow-up queries.
+- **Status:** Done (with follow-ups). Item 64 is decided as CVSS bands, and the cache, placeholders, and no-CVSS case are open.
+- **Outcome:** New module `lib/osv.sh`, sourced by `bin/repo-shield`. `osv_scan` runs the lookup on the tuples in the `SCA_*` arrays. It dedupes tuples, POSTs batches to `https://api.osv.dev/v1/querybatch` with `curl`, follows `next_page_token`, and parses the response with `jq`. The request body holds only ecosystem, name, version, and page token. `--offline` returns before any request. Any unreachable, timed-out, rate-limited (429), other non-200, or unparseable response returns `1` with `OSV_ERROR` set, and no partial result is kept. A `package.json` with no regular `package-lock.json` beside it gets a `MISSING_LOCKFILE` `LOW` finding. Tests: `tests/osv_test.sh`, 24 checks under `/bin/bash` 3.2.57, with the HTTP call replaced by a fake that reads recorded responses in `tests/fixtures/osv/`. No test makes a network call. Mutation checks: removing the offline guard fails 2 checks; dropping the page token fails 1. The other suites still pass (cli 41, traverse 10, classify 70, report 27, severity 11, sca 11).
+- **Severity (item 64, decided by the user):** CVSS v3 base score bands: 9.0 to 10.0 `CRITICAL`, 7.0 to 8.9 `HIGH`, 4.0 to 6.9 `MEDIUM`, 0.1 to 3.9 `LOW`. OSV returns the CVSS vector, not the score, so the score is computed from the vector (`cvss3_base_score`, CVSS v3.0 and v3.1), then mapped by `severity_from_cvss_score` (both in `lib/severity.sh`). The advisory is fetched from `GET /v1/vulns/{id}` once per scan. Band edges and known NVD scores are tested in `tests/severity_test.sh`, with 12 checks against a mutated edge.
+- **Not done:**
+  - **Advisories with no CVSS v3 score (open):** an advisory with only a CVSS v4 vector, or none, cannot be mapped under the decided rule. The scan fails for it with exit `1` and names the advisory. This is the one follow-up that needs a decision. Many real advisories may have no v3 score, so this matters before release. CVSS v4 is not computed.
+  - **Cache (item 61):** not built. The TTL is not chosen.
+  - **Timeouts (item 49):** placeholders only (connect 10 s, total 60 s).
+  - **Batch size (item 15):** placeholder 100. I could not verify OSV's documented per-request limit. Web search returned nothing on it. Check the OSV API docs before release.
+- **Decisions made:**
+  - `--offline` skips the missing-lock check too, because the task says "skips this task completely".
+  - The missing-lock check covers `package.json` only. `requirements.txt` and `pom.xml` have no lock convention in the spec, so they are not checked. Recorded in spec 4.2.
+  - Item 53 (working assumption): the description includes package, version, ecosystem, and advisory ID. It is built but not emitted yet.
+  - A failure at any batch or page fails the whole lookup, not just that batch.
+- **Blockers identified:** Item 61 (cache not built). Items 49 and 15 are placeholders. Item 64 is partly open: no mapping for an advisory with no CVSS v3 score.
+- **Lessons learnt:**
+  - Variables set with a command prefix (`VAR=x fn`) are not exported to a child `bash -c`. The test passes options as arguments instead, and a first version that did not do this made the offline test pass for the wrong reason.
+  - The HTTP call is one function (`osv_http_post`), so tests replace it with recorded responses. Nothing else in the module calls `curl`.
+  - Paging keeps request order by index: `split` makes batch files, and the response index is mapped back to the unique-list line through the batch file's line order.
+- **Things to consider:**
+  - Decide what happens to an advisory with no CVSS v3 score (item 64). Options: fail the scan (current), skip it with a warning, or fall back to OSV's own severity label. Only the CVSS bands are decided.
+  - Verify the OSV batch limit and set `OSV_BATCH_SIZE`.
+  - Decide item 61 and build the cache. A cache in a user directory must not store anything from the scanned repository (spec 2.3).
+  - The entry point still exits `1` at the scan stub. Nothing calls `sca_parse_target` or `osv_scan` yet.
 
 ### TASK_09: Supply chain anomaly detection
 

@@ -90,3 +90,81 @@ severity_scan_exit_code() {
     fi
   fi
 }
+
+# severity_from_cvss_score <score>: sets _SEVERITY from a CVSS base score (spec 7.4, item 64):
+# 9.0 to 10.0 is CRITICAL, 7.0 to 8.9 is HIGH, 4.0 to 6.9 is MEDIUM, and 0.1 to 3.9 is LOW.
+# The score has one decimal place, as CVSS scores do. Returns 1 for anything else (0.0, a value
+# above 10, or text that is not a number). Bash integer arithmetic on tenths avoids float errors.
+severity_from_cvss_score() {
+  local whole frac tenths
+  _SEVERITY=""
+  case $1 in
+    [0-9] | [0-9][0-9] | [0-9].[0-9] | [0-9][0-9].[0-9]) ;;
+    *) return 1 ;;
+  esac
+  whole=${1%%.*}
+  frac=0
+  case $1 in
+    *.*) frac=${1#*.} ;;
+  esac
+  tenths=$((whole * 10 + frac))
+  if [ "$tenths" -ge 90 ] && [ "$tenths" -le 100 ]; then
+    _SEVERITY=CRITICAL
+  elif [ "$tenths" -ge 70 ] && [ "$tenths" -le 89 ]; then
+    _SEVERITY=HIGH
+  elif [ "$tenths" -ge 40 ] && [ "$tenths" -le 69 ]; then
+    _SEVERITY=MEDIUM
+  elif [ "$tenths" -ge 1 ] && [ "$tenths" -le 39 ]; then
+    _SEVERITY=LOW
+  else
+    return 1
+  fi
+  return 0
+}
+
+# cvss3_base_score <vector>: prints the CVSS v3.0 or v3.1 base score for a vector such as
+# CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H, rounded up to one decimal as CVSS defines it.
+# Prints nothing and returns 1 for CVSS v2, v4, or any malformed or incomplete vector. The
+# temporal and environmental metrics are not used, because the base score is what maps to a
+# severity.
+cvss3_base_score() {
+  local score
+  score=$(awk -v v="$1" '
+    function roundup(x,   i) {
+      i = int(x * 100000 + 0.5)
+      if (i % 10000 == 0) return i / 100000
+      return (int(i / 10000) + 1) / 10
+    }
+    BEGIN {
+      n = split(v, p, "/")
+      if (n != 9 || (p[1] != "CVSS:3.0" && p[1] != "CVSS:3.1")) exit 1
+      for (k = 2; k <= n; k++) {
+        if (split(p[k], kv, ":") != 2) exit 1
+        m[kv[1]] = kv[2]
+      }
+      for (key in m) ok[key] = 1
+      split("AV AC PR UI S C I A", need, " ")
+      for (k = 1; k <= 8; k++) if (!(need[k] in m)) exit 1
+      if (m["AV"] == "N") av = 0.85; else if (m["AV"] == "A") av = 0.62
+      else if (m["AV"] == "L") av = 0.55; else if (m["AV"] == "P") av = 0.2; else exit 1
+      if (m["AC"] == "L") ac = 0.77; else if (m["AC"] == "H") ac = 0.44; else exit 1
+      if (m["S"] != "U" && m["S"] != "C") exit 1
+      changed = (m["S"] == "C")
+      if (m["PR"] == "N") pr = 0.85
+      else if (m["PR"] == "L") pr = changed ? 0.68 : 0.62
+      else if (m["PR"] == "H") pr = changed ? 0.5 : 0.27
+      else exit 1
+      if (m["UI"] == "N") ui = 0.85; else if (m["UI"] == "R") ui = 0.62; else exit 1
+      cia["H"] = 0.56; cia["L"] = 0.22; cia["N"] = 0
+      if (!(m["C"] in cia) || !(m["I"] in cia) || !(m["A"] in cia)) exit 1
+      iss = 1 - (1 - cia[m["C"]]) * (1 - cia[m["I"]]) * (1 - cia[m["A"]])
+      if (changed) imp = 7.52 * (iss - 0.029) - 3.25 * (iss - 0.02) ^ 15
+      else imp = 6.42 * iss
+      expl = 8.22 * av * ac * pr * ui
+      if (imp <= 0) { printf "%.1f\n", 0; exit 0 }
+      if (changed) base = roundup(1.08 * (imp + expl) < 10 ? 1.08 * (imp + expl) : 10)
+      else base = roundup(imp + expl < 10 ? imp + expl : 10)
+      printf "%.1f\n", base
+    }') || return 1
+  printf '%s\n' "$score"
+}
