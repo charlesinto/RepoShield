@@ -12,7 +12,7 @@ Each task has one entry below. Record every change to a task's status here, even
 
 | Task | Title | Phase | Status | Blockers (spec items) |
 | --- | --- | --- | --- | --- |
-| [TASK_01](tasks/TASK_01.md) | CLI skeleton and exit codes | 1 | Not started | 59 |
+| [TASK_01](tasks/TASK_01.md) | CLI skeleton and exit codes | 1 | Done | 59 |
 | [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Not started | 52, 58 |
 | [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Not started | 55, 60 |
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Not started | 19 |
@@ -34,11 +34,11 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_01: CLI skeleton and exit codes
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Item 59 (shared exit code).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Keep the argument parser in one place for later tasks.
+- **Status:** Done
+- **Outcome:** Entry point `bin/repo-shield` (holds `REPO_SHIELD_VERSION`, resolves symlinks to find `lib/`) and parser `lib/cli.sh`. Parses all Section 8.2 options into `CLI_*` variables and `CLI_TARGETS`. `--help`, `--version`, usage errors, and the `jq`/`curl` check are in place. Tests in `tests/cli_test.sh` (23 checks, run under `/bin/bash` 3.2.57). After a valid parse the entry point exits `1` with "scanning is not implemented yet". This is deliberate, so an unfinished scan never reports clean. Path existence is not checked yet (TASK_02).
+- **Blockers identified:** Item 59 (shared exit code). Kept exit `1` for both findings and errors. Still **Open** in the spec.
+- **Lessons learnt:** Bash 3.2 has no `${var,,}`, associative arrays, or `readlink -f` on older macOS. The entry point resolves symlinks with a `readlink` loop instead. `${arr[@]}` on an empty array is safe without `set -u`, so the scripts do not use `set -u`. Dependency check runs after parsing, so `--help` and `--version` work without `jq`/`curl`.
+- **Things to consider:** Path validation and `--output` file writing need to be added in TASK_02 and TASK_05. TASK_15 must install `lib/` next to the entry point: the source layout is `bin/repo-shield` plus `lib/`, and the installed layout must match it because the symlink resolution depends on it.
 
 ### TASK_02: Target path resolution
 

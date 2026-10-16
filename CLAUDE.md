@@ -42,7 +42,11 @@ RepoShield/
         └── TASK_01.md ... TASK_15.md  # implementation tasks derived from the spec
 ```
 
-The CLI source has not been added yet. When it is, record its location and build/test commands here.
+CLI source (TASK_01 onward):
+
+- `bin/repo-shield`: entry point. Holds `REPO_SHIELD_VERSION` and resolves its own `lib/` through symlinks.
+- `lib/cli.sh`: argument parser, usage, and dependency check. Parsed options live in `CLI_*` variables.
+- `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
 
 ## Working conventions
 
