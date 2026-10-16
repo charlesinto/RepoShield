@@ -49,6 +49,7 @@ CLI source (TASK_01 onward):
 - `lib/target.sh`: target path resolution. Resolved absolute directories live in `TARGET_DIRS`.
 - `lib/traverse.sh`: file traversal and ignore rules. `traverse_target` fills `SCAN_FILES` and `SCAN_SKIPPED`. `.gitignore` handling lives only in `traverse_gitignore_excludes`.
 - `lib/classify.sh`: file classification. `classify_target` fills `CLASSIFIED_MANIFEST`, `CLASSIFIED_SOURCE`, and `CLASSIFIED_LIFECYCLE` from `SCAN_FILES`. Source extensions (`CLASSIFY_SOURCE_EXTS`, spec item 19) are matched case-insensitively.
+- `lib/sca.sh`: SCA manifest parsers. `sca_parse_target` parses `CLASSIFIED_MANIFEST` into `SCA_ECOSYSTEM`, `SCA_NAME`, `SCA_VERSION`, and `SCA_FILE`. Skipped entries and malformed files go to `SCA_WARN_FILE` and `SCA_WARN_MSG`. `pom.xml` is read by a restricted awk parser, not `xmllint`.
 - `lib/report.sh`: finding model and renderers. `finding_add` stores a finding (four fields). `report_emit <format> <output file or empty> <target>` renders table, JSON, or SARIF to stdout or to a file. The optional `line` (item 29) feeds SARIF regions and snippets.
 - `lib/severity.sh`: severity defaults and exit code. `severity_default <category> [condition]` applies the spec 7.4 table. `severity_from_engine <engine> <native>` maps engine severities (one branch per engine). `severity_scan_exit_code` sets `_EXIT_CODE` from `--fail-on-critical`.
 - `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
@@ -56,6 +57,7 @@ CLI source (TASK_01 onward):
 - `tests/classify_test.sh`: classification acceptance checks. Run with `/bin/bash tests/classify_test.sh`.
 - `tests/report_test.sh`: finding model and renderer acceptance checks. Run with `/bin/bash tests/report_test.sh`.
 - `tests/severity_test.sh`: severity default, engine mapping, and exit code checks. Run with `/bin/bash tests/severity_test.sh`.
+- `tests/sca_test.sh`: SCA manifest parser checks against `tests/fixtures/sca/`. Run with `/bin/bash tests/sca_test.sh`.
 
 ## Working conventions
 
