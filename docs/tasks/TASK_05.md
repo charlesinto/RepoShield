@@ -1,6 +1,6 @@
 # TASK_05: Finding model and output renderers
 
-- **Status:** Not started
+- **Status:** Done (with follow-ups)
 - **Phase:** 1 (Core shell engine)
 - **Spec sections:** 7.1, 7.2, 7.3, 8.2 (`-o`, `-f`)
 - **Depends on:** TASK_01, TASK_02
@@ -11,12 +11,12 @@ Define one internal finding record and render it as an ANSI table, JSON, or SARI
 
 ## Acceptance criteria
 
-- [ ] Every finding has `category`, `severity`, `file`, and `description` (Section 7.1).
-- [ ] JSON matches the schema and example in Section 7.2: `target_directory`, `total_findings`, `critical_findings`, `findings`.
-- [ ] `-f table` is the default. `-f json` and `-f sarif` work.
-- [ ] `-o <file>` writes the report to the file. Stdout is empty in that case.
-- [ ] Zero findings still produces valid JSON and valid SARIF, with empty arrays (item 35, if option A).
-- [ ] The SARIF output validates against the SARIF 2.1.0 schema.
+- [x] Every finding has `category`, `severity`, `file`, and `description` (Section 7.1).
+- [x] JSON matches the schema and example in Section 7.2: `target_directory`, `total_findings`, `critical_findings`, `findings`.
+- [x] `-f table` is the default. `-f json` and `-f sarif` work. _(The renderers work. The default is set in the CLI (TASK_01). The entry point does not render yet; it still exits at the scan stub.)_
+- [x] `-o <file>` writes the report to the file. Stdout is empty in that case.
+- [x] Zero findings still produces valid JSON with an empty `findings` array, and SARIF with empty `rules` and `results`.
+- [x] The SARIF output validates against the SARIF 2.1.0 schema. _(Checked with the official schema. The test runs only when `REPO_SHIELD_SARIF_SCHEMA` names the schema file and `jsonschema` is installed. It is skipped otherwise.)_
 
 ## Blockers
 

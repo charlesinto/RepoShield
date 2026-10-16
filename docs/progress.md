@@ -16,7 +16,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_02](tasks/TASK_02.md) | Target path resolution | 1 | Done (with follow-ups) | 52, 58 |
 | [TASK_03](tasks/TASK_03.md) | Ignore rules and safe traversal | 1 | Done (with follow-ups) | 55, 60 |
 | [TASK_04](tasks/TASK_04.md) | File classification (dispatcher) | 1 | Done | 19 (resolved) |
-| [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Not started | 29, 30, 31, 32, 33, 34, 36, 54, 58 |
+| [TASK_05](tasks/TASK_05.md) | Finding model and output renderers | 1 | Done (with follow-ups) | 29 (partly), 31, 32, 33, 34, 36, 54, 58 |
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Not started | 27, 59, 62, 64 |
 | [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Not started | 56, 57, 63 |
 | [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Not started | 49, 53, 61, 64 |
@@ -85,11 +85,41 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_05: Finding model and output renderers
 
-- **Status:** Not started
-- **Outcome:** _None yet._
-- **Blockers identified:** Items 29, 30, 31, 32, 33, 34, 36, 54, 58.
-- **Lessons learnt:** _None yet._
-- **Things to consider:** Build with the four required fields first. Test JSON escaping with quotes and backslashes in file names.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New module `lib/report.sh`, sourced by `bin/repo-shield`. `finding_add <category> <severity> <file> <description> [line]` stores a finding in parallel arrays. Severity is checked against the four levels. `report_emit <format> <output file or empty> <target>` renders `table`, `json`, or `sarif` to stdout, or to the `-o` file with stdout left empty. An unwritable `-o` path exits `1`. JSON follows spec 7.2, plus an optional `line`. SARIF 2.1.0 follows the item 30 mapping in spec 7.3, with snippets read from the target file. Strings are escaped for quotes, backslashes, and control characters. Tests: `tests/report_test.sh`, 27 checks under `/bin/bash` 3.2.57, plus 1 SARIF schema check that is skipped unless `REPO_SHIELD_SARIF_SCHEMA` and `jsonschema` are present. With the official 2.1.0 schema and `jsonschema` installed, all 28 pass. Mutation checks: removing the backslash escape fails 1 check; removing the `-o` stderr suppression fails 1 check; an invalid SARIF level fails the schema check. The entry point still exits `1` at the scan stub, so the renderers are not reachable from the CLI yet.
+- **Decisions made:**
+  - Item 30 (SARIF, confirmed by the user): `id` is the rule id (category), `messages` is the description, the level comes from severity, `security_metadata` is `security-severity` (CRITICAL 9.0, HIGH 7.0, MEDIUM 4.0, LOW 1.0) with `tags: ["security"]`, and code snippets come from the line. Each rule's security severity is the highest among its findings.
+  - Item 29 (confirmed by the user): `line` is added as an optional field. It is included in JSON only when set, so the spec 7.2 example is unchanged. `rule_id`, `advisory_id`, `fingerprint`, and `schema_version` are still open.
+  - `rules[].shortDescription.text` is the category name until item 20 gives real category descriptions.
+  - SARIF `uri` is percent-encoded, because a name with a space is not a valid URI reference.
+  - Findings are kept as parallel arrays, not a tab-separated record. Bash cannot hold a NUL byte, and names can contain tabs and newlines. Rendering happens only after the scan.
+  - Item 35 (zero findings): JSON and SARIF give empty arrays, as the schema requires. Still Open.
+  - Item 34 (ordering and deduplication): output is in the order findings were added. No sorting and no deduplication. Still Open.
+  - Item 32 (color): the table has no color codes. Still Open.
+  - Item 33 (`table` with `-o`): the file gets the same plain table as stdout. Still Open.
+  - Item 36 (summary counts): only `total` and `critical` appear. Still Open.
+  - Item 54 (`file` relative to the target): the renderer uses whatever path the engine passes. Still Open.
+- **Blockers identified:** Still Open: item 29 (`rule_id`, `advisory_id`, `fingerprint`, `schema_version`), 31 (stream split; nothing else writes to stdout yet), 32, 33, 34, 36, 54, and 58 (how multiple paths are reported; not built, since the entry point has no multi-path output).
+- **Lessons learnt:** Bash 3.2's `printf %*s` works for table widths, and `local LC_ALL=C` makes a per-byte escape loop safe for UTF-8. Using `printf -v` avoids a fork per control character. Command substitution per field would fork for every finding, so the JSON writer sets `_JSON_STR` instead. A redirect failure on a function call prints a bash message to stderr, so the code wraps the call in a group with `2>/dev/null` and prints its own message. Two bugs were caught by the tests: a trailing comma after `rules` in the SARIF output, and a wrong index in one of my own tests. The schema check caught an invalid level when injected on purpose. A user edit to the spec was overwritten by a save during my edit, so the spec was re-read before the final edit.
+- **Things to consider:**
+  - Item 20 decides the category descriptions for `rules[].shortDescription`.
+  - Decide items 31 to 34 and 36 before the entry point renders, since they set where output goes and what it shows.
+  - Item 58 decides whether `target_directory` stays single-valued per report.
+  - The SARIF schema is not bundled. Decide whether to add it to the repo, or keep the check optional as now.
+- **Decisions made (provisional, not yet decided in the spec):**
+  - Findings are stored in parallel arrays, not a tab-separated record. Bash cannot hold a NUL byte, and names can contain tabs and newlines. Rendering happens only after the scan.
+  - Item 35 (zero findings): output is valid JSON with `"findings": []`, which the 7.1 schema requires. The item itself is still Open.
+  - Item 34 (ordering and deduplication): findings are output in the order they were added. There is no sorting and no deduplication. Still Open.
+  - Item 32 (color): the table has no color codes. This is the conservative choice, and it is still Open. Control characters in table cells are replaced with `?`.
+  - Item 33 (`table` with `-o`): the file gets the same plain table as stdout. Still Open.
+  - Item 36 (summary counts): only `total` and `critical` are shown, which are the JSON fields. Still Open.
+  - Item 54 (`file` relative to target): the renderer uses whatever the engine passes. The 7.1 wording says relative. Still Open.
+- **Blockers identified:** Still Open: items 29 (extra fields, not built), 30 (SARIF mapping, blocks `-f sarif`), 31 (stream split; nothing else writes to stdout yet), 32, 33, 34, 36, 54, 58 (how multiple paths are reported; not built, since the entry point has no multi-path output). The SARIF acceptance criteria are not met.
+- **Lessons learnt:** Bash 3.2's `printf %*s` works for table widths, and `local LC_ALL=C` makes a per-byte escape loop safe for UTF-8. Using `printf -v` avoids a fork per control character. Command substitution per field would fork for every finding, so the JSON writer sets `_JSON_STR` instead. A redirect failure on a function call prints a bash message to stderr. Wrapping the call in a group with `2>/dev/null` lets the code print its own message.
+- **Things to consider:**
+  - Decide item 30 (SARIF mapping) before building the SARIF renderer. The renderer must not be written against an assumed mapping.
+  - Decide items 31 to 34 and 36 before the entry point starts rendering, since they set where output goes and what it shows.
+  - Item 58 decides whether `target_directory` stays single-valued per report. The current JSON has one target per report, which fits option (b) (one report per path). That is an inference from the schema, not a decision.
 
 ### TASK_06: Severity and exit-code aggregation
 

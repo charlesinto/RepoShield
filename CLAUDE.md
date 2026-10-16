@@ -49,9 +49,11 @@ CLI source (TASK_01 onward):
 - `lib/target.sh`: target path resolution. Resolved absolute directories live in `TARGET_DIRS`.
 - `lib/traverse.sh`: file traversal and ignore rules. `traverse_target` fills `SCAN_FILES` and `SCAN_SKIPPED`. `.gitignore` handling lives only in `traverse_gitignore_excludes`.
 - `lib/classify.sh`: file classification. `classify_target` fills `CLASSIFIED_MANIFEST`, `CLASSIFIED_SOURCE`, and `CLASSIFIED_LIFECYCLE` from `SCAN_FILES`. Source extensions (`CLASSIFY_SOURCE_EXTS`, spec item 19) are matched case-insensitively.
+- `lib/report.sh`: finding model and renderers. `finding_add` stores a finding (four fields). `report_emit <format> <output file or empty> <target>` renders table, JSON, or SARIF to stdout or to a file. The optional `line` (item 29) feeds SARIF regions and snippets.
 - `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
 - `tests/traverse_test.sh`: traversal and ignore-rule acceptance checks. Run with `/bin/bash tests/traverse_test.sh`.
 - `tests/classify_test.sh`: classification acceptance checks. Run with `/bin/bash tests/classify_test.sh`.
+- `tests/report_test.sh`: finding model and renderer acceptance checks. Run with `/bin/bash tests/report_test.sh`.
 
 ## Working conventions
 
