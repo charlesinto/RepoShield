@@ -20,7 +20,7 @@ Each task has one entry below. Record every change to a task's status here, even
 | [TASK_06](tasks/TASK_06.md) | Severity and exit-code aggregation | 1 | Done (with follow-ups) | 27, 59, 62, 64 |
 | [TASK_07](tasks/TASK_07.md) | SCA manifest parsers | 2 | Done (with follow-ups) | 56, 57, 63 (provisional) |
 | [TASK_08](tasks/TASK_08.md) | OSV batch query and advisory findings | 2 | Done (with follow-ups) | 61 (cache not built); 49, 15 (placeholders); 64 (partly: no CVSS v3 score) |
-| [TASK_09](tasks/TASK_09.md) | Supply chain anomaly detection | 2 | Blocked | 22, 23, 62 |
+| [TASK_09](tasks/TASK_09.md) | Supply chain anomaly detection | 2 | Done (with follow-ups) | 22 (npm and Maven lists, item 67); 67 to 70 (working assumptions) |
 | [TASK_10](tasks/TASK_10.md) | Built-in SAST checks | 3 | Not started | 24, 25, 29, 62 |
 | [TASK_11](tasks/TASK_11.md) | Optional YARA and Semgrep engines | 3 | Blocked | 27 |
 | [TASK_12](tasks/TASK_12.md) | Lifecycle hook analysis | 3 | Not started | 26, 62 |
@@ -195,11 +195,27 @@ Each task has one entry below. Record every change to a task's status here, even
 
 ### TASK_09: Supply chain anomaly detection
 
-- **Status:** Blocked
-- **Outcome:** _None yet._
-- **Blockers identified:** Items 22 (method and popular-package list), 23 (internal-name rule), 62 (category names).
-- **Lessons learnt:** _None yet._
-- **Things to consider:** The popular-package list is a data dependency. Decide its source and update rule first.
+- **Status:** Done (with follow-ups)
+- **Outcome:** New modules `lib/popular.sh` (reference list fetch and cache) and `lib/anomaly.sh` (`anomaly_scan`), sourced by `bin/repo-shield`. `anomaly_scan` reads the `SCA_*` arrays and emits `TYPOSQUAT_SUSPECT` (PyPI only) and `DEPENDENCY_CONFUSION_RISK` (all ecosystems, when `--internal-prefix` is given). `--internal-prefix=<prefix>` is repeatable and was added to `lib/cli.sh` (spec 8.2). Tests: `tests/anomaly_test.sh`, 47 checks under `/bin/bash` 3.2.57. No test makes a network call; the fetch is replaced by a fake that reads `tests/fixtures/popular/top-sample.json`. The other suites still pass (cli 46, traverse 10, classify 70, report 27, severity 13, sca 11, osv 31). Spec 2.3, 2.4, 4.3, 8.2, and 9 were updated in the same change. The entry point still exits `1` at the scan stub, and nothing calls `anomaly_scan` yet.
+- **Decisions made:**
+  - **Items 22, 23, and 62 (user):** edit distance with normalization; PyPI list fetched at scan time with a 4-hour cache; a fetch failure with no cache skips the typosquat check and warns; dependency confusion uses user-configured prefixes; category names confirmed.
+  - **Working assumptions, recorded as spec 9.10 items 67 to 70:** the PyPI list is the public `top-pypi-packages-30-days.json` dataset, top 1,000 by `download_count`. It is a third-party source. I checked that it returns a live response (`last_update` 2026-10-01) but did not verify its long-term availability. The cache is at `$XDG_CACHE_HOME/repo-shield/`. `--offline` runs the anomaly checks, and the typosquat check uses only a fresh cache. An expired cache is not used when the fetch fails.
+  - **Scope:** npm and Maven have no list, so no typosquat check runs for them. Typosquat severity stays `HIGH` (provisional, spec 7.4).
+  - **Spec conflict fixed:** spec 2.3 said the only network traffic was OSV. It now also covers the list GET.
+  - **Scope of prefix matching:** the prefix is normalized and matched at the start of the name. npm scoped names are never flagged. For Maven it is matched against the `groupId`.
+  - **Algorithm in awk, not Bash.** Bash 3.2 is too slow for the edit-distance comparisons. Damerau (optimal string alignment) distance with an early exit when a row exceeds the limit.
+- **Blockers identified:** None blocking. Open: items 67 (npm and Maven lists), 68 (cache location), 69 (offline semantics), and 70 (prefix matching) are working assumptions that need confirmation.
+- **Lessons learnt:**
+  - The first version of the distance code took 11.6 s for 303 dependencies against the 1,000-name list, far too slow. Precomputing each name's characters and stopping early once a row exceeds the limit brought it to 2.6 s. Check the cost against real list sizes early.
+  - A cross-check against a Python reference (three random seeds, 71 to 88 flagged names each) matched the awk output exactly. This confirmed the early-exit change.
+  - Mutation checks found three surviving mutations: no transposition, scoped npm names not skipped, and separator runs not collapsed. Each needed a test that the first version did not have. A transposition test needs a short name, because for a long name two substitutions also pass the distance-2 limit. The scope rule is only observable when the user gives a prefix such as `@acme`.
+  - The expiry check uses `find -mmin` on a real cache file, and the test sets the file's age with `touch -t`. Both BSD and GNU `find` accept `-mmin`.
+- **Things to consider:**
+  - Confirm items 67 to 70. Items 67 and 69 change behavior the user may not expect (a third-party source; anomaly checks under `--offline`).
+  - The popular-list request has no retry and no size limit beyond the timeout. It is about 900 KB, which is acceptable. Watch the timeouts (item 49).
+  - `SCA_WARN_*` has no renderer yet. The typosquat warning is recorded but not shown. Add it when the report is wired.
+  - Nothing calls `anomaly_scan` yet. The entry point wiring is part of the later scan task.
+  - TASK_14 should add known-bad and clean fixtures for these checks beyond the synthetic ones here.
 
 ### TASK_10: Built-in SAST checks
 

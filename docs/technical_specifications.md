@@ -17,7 +17,7 @@ RepoShield is a local security scanner for cloned software repositories. It insp
 - Malicious or obfuscated code patterns, reverse shells, and embedded secrets
 - Dangerous lifecycle or build hooks (for example, `postinstall` scripts that download and execute code)
 
-It is a single-purpose, dependency-light tool. It runs offline except for advisory lookups against the OSV API.
+It is a single-purpose, dependency-light tool. It runs offline except for advisory lookups against the OSV API and the popular-package list used by the typosquat check (Section 4.3).
 
 ---
 
@@ -56,7 +56,7 @@ RepoShield reads untrusted repositories, so the following are hard requirements:
 - **Scanned code is never executed.** No file from the target repository is run, sourced, or evaluated.
 - **Paths are handled safely.** Every file path is quoted, and file lists are NUL-delimited. Names with spaces, newlines, quotes, or a leading `-` must be handled correctly.
 - **Symlinks are not followed.**
-- **Only package names and versions leave the machine.** The only network traffic is the OSV advisory query. Source code, file paths, and file hashes are never sent.
+- **Only package names and versions leave the machine.** The network traffic is the OSV advisory query and the GET of the popular-package list (Section 4.3). The list request sends no data from the target. Source code, file paths, and file hashes are never sent.
 - **No file size limit.** Files are not skipped for size. Binary-file handling is **Open** (see Section 9).
 
 ### 2.4 Failure behavior
@@ -64,6 +64,7 @@ RepoShield reads untrusted repositories, so the following are hard requirements:
 | Condition                                                | Behavior                                                         | Exit code                     |
 | -------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------- |
 | OSV is unreachable, times out, or is rate-limited        | The scan fails. No partial SCA results are reported as complete. | `1`                           |
+| Popular-package list has no fresh cache, and cannot be fetched (or `--offline`) | The typosquat check is skipped for the scan, and a warning is recorded. The other checks run. | Unchanged |
 | Required tool (`jq` or `curl`) is missing                | Fail fast with a message.                                        | `1`                           |
 | Target directory is empty or has no supported manifests  | Report zero findings.                                            | `0`                           |
 | `-o` output file cannot be written                       | Report the error.                                                | `1`                           |
@@ -151,11 +152,23 @@ Maven `dependency:list` exports are not read (item 63). A tuple can repeat acros
 
 ### 4.3 Supply chain anomalies
 
-The scanner flags the following:
+The scanner flags the following. The checks use the dependency tuples from Section 4.1.
 
-- **Typosquatting indicators.** Package names that closely resemble popular packages. **Open:** the similarity method and reference list (items 22 and 23).
+- **Typosquatting indicators (PyPI only).** A PyPI dependency whose name closely resembles a popular package. Reported as `TYPOSQUAT_SUSPECT` (items 22 and 62).
+  - **Normalization.** Names are lowercased, and each run of `-`, `_`, or `.` becomes one `-`. Both sides of every comparison are normalized.
+  - **Reference list.** The top 1,000 PyPI packages by `download_count`, taken from the `rows` array of the public dataset at `https://hugovk.dev/top-pypi-packages/top-pypi-packages-30-days.json`. The dataset is third-party (item 67).
+  - **Method.** A dependency is flagged when its normalized name is not on the reference list and is within Damerau-Levenshtein distance 1 of a reference name. A reference name of 8 or more characters also allows distance 2. A name on the reference list is never flagged. The finding names the closest reference package.
+  - **Data source and update rule.** The list is fetched at scan time with an HTTPS GET, and cached in `$XDG_CACHE_HOME/repo-shield/` (default `~/.cache/repo-shield/`) for 4 hours. A cache file less than 4 hours old is used with no request. Otherwise the list is fetched again. The request sends no data from the target.
+  - **Missing list.** If there is no fresh cache and the fetch fails, or the scan is `--offline` (spec 8.2), the typosquat check is skipped for the scan, and a warning is recorded (Section 2.4). The other checks run.
+  - npm and Maven have no reference list yet, so no typosquat check runs for them (item 67).
 - **Missing lock files.** A manifest exists with no matching lock file. Reported as `MISSING_LOCKFILE`.
-- **Dependency confusion risk.** Internal-looking or unscoped package names that could resolve from a public registry. **Open:** the detection rule (item 23).
+- **Dependency confusion risk.** Internal-looking names that could resolve from a public registry. Reported as `DEPENDENCY_CONFUSION_RISK` (items 23 and 62).
+  - Runs only when one or more `--internal-prefix` values are given (Section 8.2). Without one, the check does not run.
+  - A dependency is flagged when its normalized name starts with a normalized prefix, and the name is not scoped. An npm name that starts with `@` is scoped, so it is never flagged.
+  - For Maven, the prefix is matched against the `groupId` (the part before `:`).
+  - The check works offline and does not use the reference list.
+
+Severity of `TYPOSQUAT_SUSPECT` and `DEPENDENCY_CONFUSION_RISK` is provisional (Section 7.4).
 
 ---
 
@@ -314,7 +327,8 @@ repo-shield [OPTIONS] <path-to-repository> [<path-to-repository>...]
 | `-f` | `--format`           | `table\|json\|sarif` | Output format. Default: `table`.                                |
 | `-o` | `--output`           | `<file>`             | Write findings to a file instead of stdout.                     |
 |      | `--fail-on-critical` | none                 | Exit `1` if any `CRITICAL` finding is present.                  |
-|      | `--offline`          | none                 | Skip SCA (no OSV queries). SAST and lifecycle checks still run. |
+|      | `--offline`          | none                 | No network requests. The OSV lookup is skipped. Supply chain anomaly checks (4.3) still run, and the typosquat check uses only a fresh cache. SAST and lifecycle checks still run. |
+|      | `--internal-prefix`  | `<prefix>` (repeatable) | Treat an unscoped dependency whose name starts with `<prefix>` as a dependency confusion risk (Section 4.3). Option syntax: `--internal-prefix=<prefix>`. |
 | `-q` | `--quiet`            | none                 | Suppress non-essential output.                                  |
 |      | `--verbose`          | none                 | Print additional progress detail.                               |
 | `-h` | `--help`             | none                 | Print usage and exit.                                           |
@@ -407,10 +421,10 @@ Items 1 to 14 are the gaps from the first review of `RepoShield.md`. They are gr
 21. **Default severity per category.**
     - **Decision:** A: use the proposed defaults. · **Status:** Resolved (Section 7.4)
 22. **Typosquatting method.**
-    - Source of the top-N list: _TBD_
-    - **Decision:** _TBD_ · **Status:** Open
+    - Source of the top-N list: fetched at scan time, cached for 4 hours.
+    - **Decision:** Edit distance with normalization (Damerau-Levenshtein distance 1, or 2 for reference names of 8 or more characters). Reference list: the PyPI top 1,000 by download count, PyPI only in this version. · **Status:** Partially resolved (Section 4.3). npm and Maven lists: see item 67.
 23. **Dependency confusion rule.**
-    - **Decision:** _TBD_ · **Status:** Open
+    - **Decision:** User-configured internal prefixes (`--internal-prefix`). A dependency is flagged when its name starts with a prefix and is not scoped. · **Status:** Resolved (Sections 4.3 and 8.2)
 24. **High-entropy threshold.**
     - Entropy: _TBD_ · Minimum length: _TBD_
     - **Decision:** _TBD_ · **Status:** Open
@@ -522,7 +536,19 @@ These came out of your answers above. Each needs a decision before the related i
     - **Decision:** _TBD_ · **Status:** Open
     - **Note (TASK_08):** the cache is not built until a TTL is chosen.
 62. **Category names (item 20).** Confirm the proposed names. Item 21 is already written using them. Proposed: `SECRET_EXPOSED`, `OBFUSCATED_EXECUTION`, `REVERSE_SHELL`, `TYPOSQUAT_SUSPECT`, `DEPENDENCY_CONFUSION_RISK`, `MISSING_LOCKFILE`, `PATH_TRAVERSAL_HOOK`.
+    - **Decision:** Confirmed as proposed. · **Status:** Resolved (names only; severities of the new categories are still provisional, Section 7.4)
+67. **Popular-package list source (item 22).** The user chose a fetch at scan time with a 4-hour cache, for PyPI only. The source named in Section 4.3 is a third-party dataset, not an official registry feed. It was chosen by the implementer and checked for a live response, not by the user. The top-N size (1,000) was also chosen by the implementer.
     - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_09, provisional):** the dataset in Section 4.3, top 1,000 by `download_count`. npm and Maven have no list, so no typosquat check runs for them.
+68. **Popular-list cache location (item 48, separate from item 61).** The cache directory and file layout are a working assumption.
+    - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_09, provisional):** `$XDG_CACHE_HOME/repo-shield/`, falling back to `~/.cache/repo-shield/`. The TTL is 4 hours, as decided. An expired cache is not used when the fetch fails: the check is skipped with a warning.
+69. **Offline mode (item 5 and Section 8.2).** Under `--offline`, the anomaly checks still run, and the typosquat check uses a fresh cache. Item 5 said a flag skips SCA.
+    - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_09, provisional):** the OSV lookup and the missing-lock check are skipped, and the anomaly checks run. This follows the user's answer about the list fetch.
+70. **Internal prefix matching (item 23).** The prefix is matched after the same normalization as names, at the start of the name. For Maven it is matched against the `groupId` only.
+    - **Decision:** _TBD_ · **Status:** Open
+    - **Working assumption (TASK_09, provisional):** as written in Section 4.3.
 63. **Maven exports dropped (item 16).** Under option A, `dependency:list` exports are not read. The TRD lists them. Confirm.
     - **Decision:** _TBD_ · **Status:** Open
     - **Working assumption (TASK_07, provisional):** `dependency:list` exports are not read. This is what the parser does.
