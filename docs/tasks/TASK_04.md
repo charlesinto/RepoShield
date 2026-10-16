@@ -1,6 +1,6 @@
 # TASK_04: File classification (dispatcher)
 
-- **Status:** Not started
+- **Status:** In progress (source extension criterion waits on item 19)
 - **Phase:** 1 (Core shell engine)
 - **Spec sections:** 2 (Dispatcher / Classifier), 2.1
 - **Depends on:** TASK_03
@@ -11,12 +11,12 @@ Sort each file from the file list into one category: manifest, source code, or l
 
 ## Acceptance criteria
 
-- [ ] Every file is assigned to at most one category.
-- [ ] Manifests and lock files are classified by name: `package.json`, `package-lock.json`, `pom.xml`, `Pipfile.lock`, `requirements.txt`.
-- [ ] Lifecycle files are classified by name: `setup.py`, `setup.cfg`, `build.rs`, `Makefile`.
-- [ ] Source files are classified by extension. The extension list must match the decision on item 19.
-- [ ] Files that match nothing are left unclassified and not scanned.
-- [ ] Classification is unit-tested with a fixture set.
+- [x] Every file is assigned to at most one category.
+- [x] Manifests and lock files are classified by name: `package.json`, `package-lock.json`, `pom.xml`, `Pipfile.lock`, `requirements.txt`.
+- [x] Lifecycle files are classified by name: `setup.py`, `setup.cfg`, `build.rs`, `Makefile`.
+- [ ] Source files are classified by extension. The extension list must match the decision on item 19. _(Mechanism built; list empty until item 19 is decided.)_
+- [x] Files that match nothing are left unclassified and not scanned.
+- [x] Classification is unit-tested with a fixture set.
 
 ## Blockers
 

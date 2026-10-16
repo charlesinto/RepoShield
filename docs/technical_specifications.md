@@ -32,6 +32,8 @@ The CLI is a modular Bash program. Work flows through four stages:
 | **Analysis Engines**            | Run in parallel on the classified files (see below).                                             |
 | **Aggregation & Report Engine** | Normalize severities, render the chosen output format, and compute the exit code.                |
 
+Classification rules: each file goes to at most one category. Manifests and lifecycle files are matched by exact base name at any depth. Source files are matched by extension. A name rule wins over the extension rule, so `setup.py` is lifecycle, not source. A file that matches no rule is not scanned. The source extension list is **Open** (item 19), so no file is classified as source yet.
+
 ### 2.1 Analysis engines
 
 | Engine               | Input                    | Responsibilities                                                                                                          |

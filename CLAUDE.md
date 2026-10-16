@@ -48,8 +48,10 @@ CLI source (TASK_01 onward):
 - `lib/cli.sh`: argument parser, usage, and dependency check. Parsed options live in `CLI_*` variables.
 - `lib/target.sh`: target path resolution. Resolved absolute directories live in `TARGET_DIRS`.
 - `lib/traverse.sh`: file traversal and ignore rules. `traverse_target` fills `SCAN_FILES` and `SCAN_SKIPPED`. `.gitignore` handling lives only in `traverse_gitignore_excludes`.
+- `lib/classify.sh`: file classification. `classify_target` fills `CLASSIFIED_MANIFEST`, `CLASSIFIED_SOURCE`, and `CLASSIFIED_LIFECYCLE` from `SCAN_FILES`. The source extension list (`CLASSIFY_SOURCE_EXTS`) is empty until item 19 is decided.
 - `tests/cli_test.sh`: acceptance checks. Run with `/bin/bash tests/cli_test.sh`. Use `/bin/bash` (3.2 on macOS) so the Bash 3.2 requirement is tested. No build step.
 - `tests/traverse_test.sh`: traversal and ignore-rule acceptance checks. Run with `/bin/bash tests/traverse_test.sh`.
+- `tests/classify_test.sh`: classification acceptance checks. Run with `/bin/bash tests/classify_test.sh`.
 
 ## Working conventions
 
