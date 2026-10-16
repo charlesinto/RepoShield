@@ -195,7 +195,7 @@ Every finding has these fields:
 | `file`        | string | File path, relative to the target directory. _(Inferred; see item 54.)_                                                                          |
 | `description` | string | Human-readable explanation.                                                                                                                      |
 
-Additional fields (`line`, `rule_id`, `advisory_id`, `fingerprint`, `schema_version`) are **Open** (item 29).
+`line` is an optional field, present only when the engine knows the line number (item 29). It is included in JSON when present. The other extra fields (`rule_id`, `advisory_id`, `fingerprint`, `schema_version`) are **Open** (item 29).
 
 The JSON report wraps findings in a top-level object:
 
@@ -238,7 +238,22 @@ The JSON report wraps findings in a top-level object:
 | JSON       | `json`            | Schema in Section 7.1.                     |
 | SARIF      | `sarif`           | SARIF 2.1.0 document.                      |
 
-Output streams, color handling, and how `table` behaves with `--output` are **Open** (items 31 to 33). SARIF field mapping is **Open** (item 30).
+Output streams, color handling, and how `table` behaves with `--output` are **Open** (items 31 to 33).
+
+#### SARIF mapping (item 30)
+
+SARIF output is a SARIF 2.1.0 log with one run. Each finding becomes one result.
+
+| Finding field | SARIF 2.1.0 location |
+| ------------- | -------------------- |
+| `category` | `results[].ruleId`, and `runs[].tool.driver.rules[].id`. There is one rule per category. |
+| `description` | `results[].message.text` |
+| `severity` | `results[].level`: `CRITICAL` and `HIGH` give `error`, `MEDIUM` gives `warning`, `LOW` gives `note`. Each rule's `properties.security-severity` is the highest severity among its findings: `CRITICAL` 9.0, `HIGH` 7.0, `MEDIUM` 4.0, `LOW` 1.0. Each rule also has `properties.tags: ["security"]`. |
+| `category` (rule text) | `rules[].shortDescription.text` is the category name until item 20 gives category descriptions. |
+| `file` | `results[].locations[].physicalLocation.artifactLocation.uri`, percent-encoded as a URI reference. |
+| `line` (item 29) | `physicalLocation.region.startLine`. `region.snippet.text` is that line of `file` in the target directory. When there is no line, there is no region. When the line is past the end of the file, there is no snippet. |
+
+The output is checked against the SARIF 2.1.0 schema when the test runs with the schema file (see `tests/report_test.sh`). The schema is not bundled with the repository.
 
 ### 7.4 Severity
 
@@ -390,9 +405,9 @@ Items 1 to 14 are the gaps from the first review of `RepoShield.md`. They are gr
 ### 9.5 Output & schema
 
 29. **Extra finding fields.**
-    - **Decision:** _TBD_ · **Status:** Open
+    - **Decision:** `line` is added as an optional field: the line number in `file`, set when the engine knows it. Used for SARIF regions and snippets (item 30). `rule_id`, `advisory_id`, `fingerprint`, and `schema_version` are still _TBD_. · **Status:** Partially resolved
 30. **SARIF mapping.**
-    - **Decision:** _TBD_ · **Status:** Open
+    - **Decision:** The mapping in [Section 7.3](#73-output-formats) is used. The user's list (id, messages, severity level, description, security_metadata, code snippets) is covered by the rows there. · **Status:** Resolved
 31. **Output streams.**
     - **Decision:** _TBD_ · **Status:** Open
 32. **Color.**
