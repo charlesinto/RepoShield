@@ -100,6 +100,10 @@ The scanner reads ignore patterns from these files at the root of the scanned re
 - **`.repo-shield-ignore`** excludes matching paths from the scan.
 - **`.gitignore`** does **not** exclude files from the scan. A file that is git-ignored is still scanned, so malicious files cannot hide from the scanner. How `.gitignore` affects the report is **Open** (see item 60).
 
+**`.repo-shield-ignore` syntax** (working assumption until decided; see progress.md TASK_03): gitignore-style globs, one per line. Blank lines and lines starting with `#` are ignored. A leading `!` re-includes a path matched by an earlier line. A trailing `/` matches directories only. A pattern with a `/` in it is anchored to the repository root. Otherwise it matches a name at any depth. `*` and `?` do not match `/`, and `**` matches across directories. An excluded directory excludes everything under it.
+
+**Traversal.** Symlinks are recorded as skipped and never followed. Special files (FIFOs, sockets, devices) are skipped and recorded the same way. Binary files are scanned as text (item 55, still Open).
+
 ---
 
 ## 4. Software Composition Analysis (SCA)
